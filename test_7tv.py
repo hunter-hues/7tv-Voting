@@ -13,12 +13,17 @@ def get_emote_img_url(id: str, size: int):
 
 async def get_emotes():
     username = "hunter_hues"
-    id = "01GFHQ0NVG0003MXBXD46YE188" #01GFHQ0NVG0003MXBXD46YE188
+    platform = 'TWITCH'
+    id = "" #01GFHQ0NVG0003MXBXD46YE188
     user_query = f"""
     {{
-        users(query: {username}) {{
+        users(query: "{username}") {{
             id
             username
+            connections {{
+                id
+                platform
+            }}
         }}
     }}
     """
@@ -45,20 +50,25 @@ async def get_emotes():
     """
 
     async with httpx.AsyncClient() as client:
-        #response = await client.post("https://7tv.io/v3/gql", json={"query": user_query})
-        #data = response.json().get("data")
-        #print(response.status_code)
-        #correct_user = [{"name": user["name"], "id": user["id"]} for user in data['user']['name'] == user['name']]
-        response = await client.post("https://7tv.io/v3/gql", json={"query": query})
+        response = await client.post("https://7tv.io/v3/gql", json={"query": user_query})
         data = response.json().get("data")
         print(response.status_code)
-        #pprint.pprint(data)
-        print(data["user"]["username"])
-        print([emote_set["name"] for emote_set in data["user"]["emote_sets"]])
-        emotes = [{"name": emote["name"], "id": emote["id"]} for emote in data["user"]["emote_sets"][0]["emotes"]]
-        print(emotes[0])
-        print(get_emote_img_url(emotes[0]["id"], 4))
-        print(data["user"]['connections'])
+        pprint.pprint(response.json())
+        correct_user = [user for user in data['users'] if user['username'] == username and user["connections"]['platform'] == platform]
+        if len(correct_user) == 1:
+            id = correct_user[0]['id']
+            response = await client.post("https://7tv.io/v3/gql", json={"query": query})
+            data = response.json().get("data")
+            print(response.status_code)
+            #pprint.pprint(data)
+            print(data["user"]["username"])
+            print([emote_set["name"] for emote_set in data["user"]["emote_sets"]])
+            emotes = [{"name": emote["name"], "id": emote["id"]} for emote in data["user"]["emote_sets"][0]["emotes"]]
+            print(emotes[0])
+            print(get_emote_img_url(emotes[0]["id"], 4))
+            print(data["user"]['connections'])   
+
+        
 
 
 
