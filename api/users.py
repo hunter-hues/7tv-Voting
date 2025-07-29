@@ -4,7 +4,7 @@ import pprint
 
 router = APIRouter()
 
-@router.get('/user/{username}')
+@router.get('/users/{username}')
 async def get_user(username: str) -> dict:
     user_query = f"""
     {{
