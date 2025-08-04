@@ -176,6 +176,7 @@ function displayVoteCreation(selectedEmoteSet) {
         <option value="subscribers">Subscribers only</option>
         <option value="specific">Specific users</option>
     `;
+    //TODO: error handling for if specific users is chosen, also figure out how to check a users relation to the vote creator
 
 
     //Submit Button
