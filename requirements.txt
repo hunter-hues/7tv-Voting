@@ -1,3 +1,9 @@
 fastapi
 uvicorn[standard]
 httpx
+sqlalchemy
+alembic
+asyncpg
+python-dotenv
+authlib
+python-jose[cryptography]
