@@ -66,4 +66,12 @@ async def callback(request: Request):
                 raise HTTPException(status_code=404, detail="User info not found")
             else:
                 user_object = user_data['data'][0]
-                return {"user info": user_object}
+                request.session["user"] = user_object
+                return RedirectResponse(url="/", status_code=302)
+
+@router.get('/auth/me')
+async def get_current_user(request: Request):
+    if request.session.get("user"):
+        return {"authenticated": True, "user": request.session.get("user")}
+    else:
+        return {"authenticated": False, "user": "not authenticated"}

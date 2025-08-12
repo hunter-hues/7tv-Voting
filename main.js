@@ -3,13 +3,14 @@ import { displayEmoteSets } from "./emotedisplay.js";
 import { displayVoteCreation } from "./displayVoteCreation.js";
 
 console.log("JS is connected");
+checkAuth();
 
 const usernameInput = document.querySelector('#username');
-const fetchButton = document.querySelector('#fetch-emotes');
+const loginButton = document.querySelector('#login-with-twitch-btn');
 const voteCreationButton = document.querySelector('#create-vote-btn');
 const availableVotesButton = document.querySelector('#available-votes-btn');
 const profileButton = document.querySelector('#profile-btn');
-const userLookUp = document.querySelector('#username-input-section');
+const twitchLogin = document.querySelector('#login-with-twitch-section');
 const dashboard = document.querySelector('#dashboard');
 const contentArea = document.querySelector('#content-area');
 let currentEmoteSets = null;
@@ -23,9 +24,21 @@ function setSelectedEmoteSet(data) {
     selectedEmoteSet = data;
 }
 
-fetchButton.addEventListener('click', async function() {
-    userLookUp.style.display = 'none';
-    dashboard.style.display = 'block';
+async function checkAuth(){
+    const response = await fetch('/auth/me');
+    const data = await response.json();
+    console.log(data);
+    if (data['authenticated'] == true) {
+        twitchLogin.style.display = 'none';
+        dashboard.style.display = 'block';
+    } else{
+        dashboard.style.display = 'none';
+        twitchLogin.style.display = 'block';
+    }
+}
+
+loginButton.addEventListener('click', async function() {
+    window.location.href = '/auth/login'
 });
 
 availableVotesButton.addEventListener('click', async function() {
