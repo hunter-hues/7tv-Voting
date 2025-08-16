@@ -1,6 +1,6 @@
 
 
-export function displayVoteCreation(selectedEmoteSet) {
+export function displayVoteCreation(selectedEmoteSet, username) {
     let activeTimeTab = 'duration';
     
     const emoteSetDisplay = document.querySelector('#emote-set-list');
@@ -145,10 +145,11 @@ export function displayVoteCreation(selectedEmoteSet) {
         activeTimeTab = 'endTime';
     });
 
-    submitButton.addEventListener('click', function() {
+    submitButton.addEventListener('click', async function() {
         event.preventDefault();
         const formData = {
             emoteSet: selectedEmoteSet, 
+            emoteSetOwner: username,
             voteTitle: titleInput.value,
             activeTimeTab: activeTimeTab,
             duration: {
@@ -156,11 +157,34 @@ export function displayVoteCreation(selectedEmoteSet) {
                 hours: durationHours.value,
                 minutes: durationMinutes.value
             },
-            endTime: endTimeInput.value,
+            endTime: endTimeInput.value ? new Date(endTimeInput.value).toISOString() : null,
             permissions: permissionSelect.value
         }
         validateForm();
         console.log(formData);
+
+        if(!submitButton.disabled) {
+            try {
+                const response = await fetch('/votes/create', {
+                    method: 'POST',  // We're creating/sending data
+                    headers: { 'Content-Type': 'application/json' },  // Tell server it's JSON
+                    body: JSON.stringify(formData)  // Convert object to JSON string
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Vote created successfully!');
+                    //TODO: redirect to vote list/status
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+
+            } catch (error) {
+                console.error('Error creating vote:', error);
+                alert('Failed to create vote. Please try again.')
+            }
+        }
     });
 
     //Error validations

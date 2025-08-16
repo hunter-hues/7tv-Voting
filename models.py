@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ARRAY, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Date, ARRAY, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from database import Base
 
@@ -13,6 +13,8 @@ class User(Base):
     login_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True))
+    last_seen_date = Column(Date)  # Track last daily visit
+    daily_visits = Column(Integer, default=0)  # Count of unique days visited
 
 class VotingEvent(Base):
     __tablename__ = "voting_events"

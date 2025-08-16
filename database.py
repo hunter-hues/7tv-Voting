@@ -8,8 +8,8 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/dbname")
 
-# For async operations (FastAPI)
-ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+# Remove sslmode for asyncpg (it doesn't support it)
+ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://").replace("?sslmode=require", "")
 engine = create_async_engine(ASYNC_DATABASE_URL)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

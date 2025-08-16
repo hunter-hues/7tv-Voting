@@ -46,27 +46,36 @@ availableVotesButton.addEventListener('click', async function() {
 });
 
 voteCreationButton.addEventListener('click', async function() {
-    const username = usernameInput.value;
-    console.log('Username:', username);
-    contentArea.innerHTML = '';
+    const response = await fetch('/auth/me');
+    const data = await response.json();
 
-    // Create the emote-set-list div inside content area
-    const emoteSetList = document.createElement('div');
-    emoteSetList.id = 'emote-set-list';
-    contentArea.appendChild(emoteSetList);
-
-    // Create the vote-creation div inside content area  
-    const voteCreation = document.createElement('div');
-    voteCreation.id = 'vote-creation';
-    voteCreation.style.display = 'none';
-    contentArea.appendChild(voteCreation);
-    
-    try {
-        const emoteSets = await getEmoteSets(username);
-        console.log('Emote sets:', emoteSets);
-        displayEmoteSets(emoteSets, displayVoteCreation, setCurrentEmoteSets, setSelectedEmoteSet);
-    } catch (error) {
-        console.error('Error:', error);
+    if (data.authenticated) {
+        const username = data.user.login;
+        console.log('Username:', username);
+        
+        // ALL your current logic goes here:
+        contentArea.innerHTML = '';
+        
+        const emoteSetList = document.createElement('div');
+        emoteSetList.id = 'emote-set-list';
+        contentArea.appendChild(emoteSetList);
+        
+        const voteCreation = document.createElement('div');
+        voteCreation.id = 'vote-creation';
+        voteCreation.style.display = 'none';
+        contentArea.appendChild(voteCreation);
+        
+        try {
+            const emoteSets = await getEmoteSets(username);
+            console.log('Emote sets:', emoteSets);
+            displayEmoteSets(emoteSets, displayVoteCreation, setCurrentEmoteSets, setSelectedEmoteSet, username);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        
+    } else {
+        // Handle not authenticated case
+        contentArea.innerHTML = '<p>Please log in to create votes</p>';
     }
 });
 

@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from api.users import router as users_router
 from api.emotes import router as emotes_router
 from api.auth import router as auth_router
+from api.votes import router as votes_router
 import mimetypes
 import os
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ app = FastAPI()
 app.include_router(users_router)
 app.include_router(emotes_router)
 app.include_router(auth_router)
+app.include_router(votes_router)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv('SECRET_KEY'))
 
 # Mount static files with the updated MIME types

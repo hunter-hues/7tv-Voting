@@ -1,6 +1,6 @@
 import { getEmoteImgUrl } from "./api.js";
 
-export function displayEmoteSets(emoteSetsData, displayVoteCreation, setCurrentEmoteSets, setSelectedEmoteSet) {
+export function displayEmoteSets(emoteSetsData, displayVoteCreation, setCurrentEmoteSets, setSelectedEmoteSet, username) {
     setCurrentEmoteSets(emoteSetsData);
     const container = document.querySelector('#emote-set-list');
     container.innerHTML = '';
@@ -24,7 +24,7 @@ export function displayEmoteSets(emoteSetsData, displayVoteCreation, setCurrentE
             parentDiv.addEventListener('click', function() {
                 console.log('Clicked emote set:', emoteSet.name);
                 setSelectedEmoteSet(emoteSet);
-                displayVoteCreation(emoteSet);
+                displayVoteCreation(emoteSet, username);
             });
         }
         container.appendChild(parentDiv);
