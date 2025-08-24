@@ -44,3 +44,37 @@ async def get_emote_sets(user_id: str) -> dict:
             ]
 
             return {'emote_sets': emote_sets}
+
+@router.get('/emotes/set/{emote_set_id}/emotes')
+async def get_emotes_from_set(emote_set_id: str):
+    query = f"""
+        {{
+            emoteSet(id: "{emote_set_id}") {{
+                id
+                name
+                emotes {{
+                    id
+                    name 
+                }}
+            }}
+
+        }}
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.post("https://7tv.io/v3/gql", json={"query": query})
+        data = response.json().get("data")
+        if response.status_code != 200:
+            raise HTTPException(status_code=500, detail='7TV API error')
+        elif not data or not data.get('emoteSet'):
+            raise HTTPException(status_code=404, detail='emote set not found')
+        else:
+            emotes = [
+                {
+                    'id': emote['id'],
+                    'name': emote['name']
+                } 
+                for emote in data['emoteSet']['emotes']
+            ]
+        
+            return {'emotes': emotes}
+        

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Date, ARRAY, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Date, ARRAY, ForeignKey, Boolean, Float
 from sqlalchemy.sql import func
 from database import Base
 
@@ -24,7 +24,7 @@ class VotingEvent(Base):
     title = Column(String, nullable=False)
     emote_set_id = Column(String)
     emote_set_name = Column(String)
-    duration_hours = Column(Integer)
+    duration_hours = Column(Float)
     end_time = Column(DateTime(timezone=True))
     active_time_tab = Column(String)
     permission_level = Column(String)

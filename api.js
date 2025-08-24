@@ -30,6 +30,60 @@ export async function getEmoteSets(username) {
     }
 }
 
+export async function getEmotesFromSet(emoteSetId) {
+    try {
+        const emoteSetData = await fetch(`/emotes/set/${emoteSetId}/emotes`);
+        if (!emoteSetData.ok) {
+            throw new Error(`HTTP error! status: ${emoteSetData.status}`);
+        }
+        const emotes = await emoteSetData.json();
+        return emotes;
+    } catch (error) {
+        console.error ('Error in getEmotesFromSet', error);
+        throw error;
+    }
+}
+
 export function getEmoteImgUrl(id, size) {
     return `https://cdn.7tv.app/emote/${id}/${size}x`;
+}
+
+export async function createNeutralVote(votingEventId, emoteId) {
+    try {
+        const checkResponse = await fetch(`/votes/check?voting_event_id=${votingEventId}&emote_id=${emoteId}`);
+        const checkResult = await checkResponse.json();
+        
+        if (checkResult.vote_exists) {
+            console.log(`Vote already exists for emote ${emoteId}:`, checkResult.current_vote);
+            return; 
+        }
+        
+        const response = await fetch('/votes/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                voting_event_id: votingEventId,
+                emote_id: emoteId,
+                vote_choice: 'neutral'
+            })
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+            console.log('Neutral vote creation result:', result.message);
+        }
+    } catch (error) {
+        console.error('Error creating neutral vote:', error);
+    }
+}
+
+export async function createNeutralVotesInBackground(votingEventId, emotes) {
+    console.log(`Creating neutral votes for ${emotes.length} emotes in background...`);
+    
+    // Process in background without blocking UI
+    for (const emote of emotes) {
+        createNeutralVote(votingEventId, emote.id); // No await!
+    }
+    
+    console.log('Background neutral vote creation started');
 }

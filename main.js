@@ -1,6 +1,7 @@
 import { getUser, getEmoteSets, getEmoteImgUrl } from "./api.js";
 import { displayEmoteSets } from "./emotedisplay.js";
 import { displayVoteCreation } from "./displayVoteCreation.js";
+import { displayVotingEvents } from "./votingInterface.js";
 
 console.log("JS is connected");
 checkAuth();
@@ -42,7 +43,19 @@ loginButton.addEventListener('click', async function() {
 });
 
 availableVotesButton.addEventListener('click', async function() {
-    contentArea.innerHTML = '<h2>Vote list coming soon</h2>';
+    try {
+        const response = await fetch('/votes/voting-events');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayVotingEvents(data.active_events, data.expired_events);
+        } else {
+            contentArea.innerHTML = '<p>Error loading voting events</p>';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        contentArea.innerHTML = '<p>Failed to load voting events</p>';
+    }
 });
 
 voteCreationButton.addEventListener('click', async function() {
