@@ -277,3 +277,7 @@ async def create_vote(vote_data: VoteEventCreate, request: Request, db: AsyncSes
     except Exception as e:
         await db.rollback()  # Undo any partial changes
         return {"success": False, "message": f"Failed to save vote: {str(e)}"}
+
+@router.get('/votes/{event_id}/counts')
+async def get_vote_counts(event_id: int, db:AsyncSession = Depends(get_database)):
+    result = await db.execute(select(IndividualVote).where(IndividualVote.voting_event_id == event_id))
