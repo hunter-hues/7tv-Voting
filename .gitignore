@@ -25,3 +25,6 @@ Thumbs.db
 
 # Pytest cache
 .cache/
+
+test_7tv.py
+test_main.py
