@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>7TV Emote Sets</title>
+  <style>
+    .emote-set {
+      border: 1px solid #ccc;
+      margin: 10px;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .preview-emotes {
+      display: flex;
+      gap: 5px;
+      margin-top: 10px;
+    }
+    .emote {
+      width: 32px;
+      height: 32px;
+    }
+  </style>
+</head>
+<body>
+  <div id="login-with-twitch-section" style="display:none">
+    <label for="login-with-twitch-btn">Sign in with Twitch</label>
+    <button id="login-with-twitch-btn">Login</button>
+  </div>
+  <div id="dashboard" style="display: none">
+    <nav>
+      <button id="available-votes-btn">Available Voting Events</button>
+      <button id="create-vote-btn">Create Voting Event</button>
+      <button id="profile-btn">Profile</button>
+    </nav>
+
+    <div id="content-area">
+      
+    </div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

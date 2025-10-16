@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+venv*/  # Catches venv312 or venv3.10, etc.
+
+# Editor-specific files (optional but good practice)
+.vscode/
+*.code-workspace
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Python-specific
+*.env
+.env
+*.log
+
+# Jupyter (if ever used)
+.ipynb_checkpoints/
+
+# Pytest cache
+.cache/
+
+test_7tv.py
+test_main.py
