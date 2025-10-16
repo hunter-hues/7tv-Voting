@@ -1,0 +1,5 @@
+venv/
+.env
+venv312/
+__pycache__/
+alembic/
