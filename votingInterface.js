@@ -19,6 +19,10 @@ function createEventButton(event, isActive) {
     voteTitle.textContent = `"${event.title}"`;
     voteTitle.style.fontWeight = 'bold';
     voteTitle.style.color = '#333';
+
+    const voteEventId = document.createElement('h4');
+    voteEventId.classList.add('vote-event-id');
+    voteEventId.textContent = `#${event.id}`
     
     const timeInfo = document.createElement('p');
     timeInfo.classList.add('time-info');
@@ -137,6 +141,7 @@ function createEventButton(event, isActive) {
     }
     
     eventButton.appendChild(voteTitle);
+    eventButton.appendChild(voteEventId);
     eventButton.appendChild(usernameAndTitle);
     eventButton.appendChild(timeInfo);
     eventButton.appendChild(totalVotes);
