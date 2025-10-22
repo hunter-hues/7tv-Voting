@@ -1,4 +1,4 @@
-
+import { displayVotingEventById } from "./votingInterface.js";
 
 export function displayVoteCreation(selectedEmoteSet, username) {
     let activeTimeTab = 'duration';
@@ -172,10 +172,11 @@ export function displayVoteCreation(selectedEmoteSet, username) {
                 });
 
                 const result = await response.json();
+                console.log('Vote creation response: ', result)
 
                 if (result.success) {
                     alert('Vote created successfully!');
-                    //TODO: redirect to vote list/status
+                    displayVotingEventById(result.vote_id);
                 } else {
                     alert(`Error: ${result.message}`);
                 }
