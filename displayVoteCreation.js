@@ -94,8 +94,79 @@ export function displayVoteCreation(selectedEmoteSet, username) {
         <option value="subscribers">Subscribers only</option>
         <option value="specific">Specific users</option>
     `;
-    //TODO: error handling for if specific users is chosen, also figure out how to check a users relation to the vote creator
 
+    // Specific users section (initially hidden)
+    const specificUsersSection = document.createElement('div');
+    specificUsersSection.className = 'form-section';
+    specificUsersSection.style.display = 'none';
+    specificUsersSection.id = 'specific-users-section';
+
+    // Username input
+    const usernameInput = document.createElement('input');
+    usernameInput.type = 'text';
+    usernameInput.placeholder = 'Enter Twitch username';
+    usernameInput.id = 'username-input';
+
+    // Add user button
+    const addUserButton = document.createElement('button');
+    addUserButton.type = 'button';
+    addUserButton.textContent = 'Add User';
+    addUserButton.id = 'add-user-btn';
+
+    // Users list display
+    const usersList = document.createElement('div');
+    usersList.id = 'users-list';
+    usersList.style.marginTop = '10px';
+
+    specificUsersSection.appendChild(usernameInput);
+    specificUsersSection.appendChild(addUserButton);
+    specificUsersSection.appendChild(usersList);
+
+    // Show/hide specific users section based on permission selection
+    permissionSelect.addEventListener('change', function() {
+        if (permissionSelect.value === 'specific') {
+            specificUsersSection.style.display = 'block';
+        } else {
+            specificUsersSection.style.display = 'none';
+        }
+    });
+
+    // Add user functionality
+    let specificUsersList = [];
+    addUserButton.addEventListener('click', function() {
+        const username = usernameInput.value.trim();
+        if (username && !specificUsersList.includes(username)) {
+            specificUsersList.push(username);
+            updateUsersList();
+            usernameInput.value = '';
+        }
+    });
+
+    // Update users list display
+    function updateUsersList() {
+        usersList.innerHTML = '';
+        specificUsersList.forEach((username, index) => {
+            const userDiv = document.createElement('div');
+            userDiv.style.display = 'flex';
+            userDiv.style.justifyContent = 'space-between';
+            userDiv.style.marginBottom = '5px';
+            
+            const usernameSpan = document.createElement('span');
+            usernameSpan.textContent = username;
+            
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.textContent = 'Remove';
+            removeButton.onclick = () => {
+                specificUsersList.splice(index, 1);
+                updateUsersList();
+            };
+            
+            userDiv.appendChild(usernameSpan);
+            userDiv.appendChild(removeButton);
+            usersList.appendChild(userDiv);
+        });
+    }
 
     //Submit Button
     const submitSection = document.createElement('div');
@@ -116,6 +187,7 @@ export function displayVoteCreation(selectedEmoteSet, username) {
     timeSection.appendChild(endTimeTab);
     endTimeContent.appendChild(endTimeInput);
     permissionsSection.appendChild(permissionSelect);
+    permissionsSection.appendChild(specificUsersSection); 
     submitSection.appendChild(submitButton);
 
     //Add error displays
@@ -147,6 +219,7 @@ export function displayVoteCreation(selectedEmoteSet, username) {
 
     submitButton.addEventListener('click', async function() {
         event.preventDefault();
+        console.log('specificUsersList before submission:', specificUsersList);
         const formData = {
             emoteSet: selectedEmoteSet, 
             emoteSetOwner: username,
@@ -158,7 +231,8 @@ export function displayVoteCreation(selectedEmoteSet, username) {
                 minutes: durationMinutes.value
             },
             endTime: endTimeInput.value ? new Date(endTimeInput.value).toISOString() : null,
-            permissions: permissionSelect.value
+            permissions: permissionSelect.value,
+            specific_users: permissionSelect.value === 'specific' ? specificUsersList : []
         }
         validateForm();
         console.log(formData);

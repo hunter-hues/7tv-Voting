@@ -5,7 +5,8 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone as dt_timezone
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
+from api.twitch_api import check_user_follows_channel, check_user_subscribed_to_channel
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ class VoteEventCreate(BaseModel):
     duration: dict
     endTime: Optional[datetime] = None
     permissions: str
+    specific_users: List[str] = [] 
 
 class IndividualVoteSubmit(BaseModel):
     voting_event_id: int
@@ -132,6 +134,7 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
     result = await db.execute(
         select(VotingEvent, User.twitch_username)
         .join(User, VotingEvent.creator_id == User.id)
+        .order_by(VotingEvent.id.asc())  
     )
 
     voter_counts = await db.execute(
@@ -157,16 +160,34 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
         creator = row[1]
 
         user_can_access = False
-
-        if event.permission_level == "all":
-            user_can_access = True 
-        elif event.permission_level == "specific_users":
-            if user_session["login"] in event.specific_users:
+        # Event creator always has access
+        if user.id == event.creator_id:
+            user_can_access = True
+        else:
+            # Check permission levels for everyone else
+            print(f"DEBUG: event.specific_users = {event.specific_users}, type = {type(event.specific_users)}")
+            print(f"DEBUG: user_session['login'] = {user_session['login']}")
+            
+            if event.permission_level == "all":
                 user_can_access = True 
-        #elif event.permission_level == "followers": #or other specific ones
-            #todo add followers, subs etc check later
-        
-        user_can_access = True
+            elif event.permission_level == "specific":
+                print(f"DEBUG: Checking specific_users permission: '{user_session['login']}' in {event.specific_users} = {user_session['login'] in event.specific_users}")
+                if user_session["login"] in event.specific_users:
+                    user_can_access = True  
+            elif event.permission_level == "followers":
+                # Check if user follows the event creator
+                user_can_access = await check_user_follows_channel(
+                    user_id=str(user.id),
+                    channel_id=str(event.creator_id), 
+                    access_token=user.access_token
+                )
+            elif event.permission_level == "subscribers":
+                # Check if user is subscribed to the event creator
+                user_can_access = await check_user_subscribed_to_channel(
+                    user_id=str(user.id),
+                    broadcaster_id=str(event.creator_id),
+                    db=db
+                )
 
         if user_can_access:
             allowed_events.append(row)
@@ -279,6 +300,10 @@ async def create_vote(vote_data: VoteEventCreate, request: Request, db: AsyncSes
         if user.twitch_username not in emote_set_owner.can_create_votes_for:
             return {"success": False, "message": "Permission denied: cannot create votes for this user"}
 
+    print(f"Vote data: {vote_data}")
+    print(f"Specific users: {getattr(vote_data, 'specific_users', 'NOT_FOUND')}")
+    print(f"Permissions: {vote_data.permissions}")
+
     if vote_data.activeTimeTab == 'duration':
         total_hours = duration_days * 24 + duration_hours + (duration_minutes / 60)
         voting_event = VotingEvent(
@@ -288,7 +313,8 @@ async def create_vote(vote_data: VoteEventCreate, request: Request, db: AsyncSes
             emote_set_name=vote_data.emoteSet['name'],
             duration_hours=total_hours,
             active_time_tab=vote_data.activeTimeTab,
-            permission_level=vote_data.permissions
+            permission_level=vote_data.permissions,
+            specific_users=getattr(vote_data, 'specific_users', [])
         )
     else:
         voting_event = VotingEvent(
@@ -298,7 +324,8 @@ async def create_vote(vote_data: VoteEventCreate, request: Request, db: AsyncSes
             emote_set_name=vote_data.emoteSet['name'],
             end_time=vote_data.endTime,
             active_time_tab=vote_data.activeTimeTab,
-            permission_level=vote_data.permissions
+            permission_level=vote_data.permissions,
+            specific_users=getattr(vote_data, 'specific_users', [])
         )
 
     try:
@@ -396,11 +423,33 @@ async def get_voting_event_by_id(event_id: int, request: Request, db: AsyncSessi
 
     # Check permissions
     user_can_access = False
-    if event.permission_level == "all":
-        user_can_access = True 
-    elif event.permission_level == "specific_users":
-        if user_session["login"] in event.specific_users:
+    # Event creator always has access
+    if user.id == event.creator_id:
+        user_can_access = True
+    else:
+        # Check permission levels for everyone else
+        if event.permission_level == "all":
             user_can_access = True 
+        # ... rest of existing logic
+        if event.permission_level == "all":
+            user_can_access = True 
+        elif event.permission_level == "specific_users":
+            if user_session["login"] in event.specific_users:
+                user_can_access = True 
+        elif event.permission_level == "followers":
+            # Check if user follows the event creator
+            user_can_access = await check_user_follows_channel(
+                user_id=str(user.id),
+                channel_id=str(event.creator_id), 
+                access_token=user.access_token
+            )
+        elif event.permission_level == "subscribers":
+            # Check if user is subscribed to the event creator
+            user_can_access = await check_user_subscribed_to_channel(
+                user_id=str(user.id),
+                broadcaster_id=str(event.creator_id),
+                db=db
+            ) 
     
     if not user_can_access:
         return {"success": False, "message": "Access denied"}
@@ -462,7 +511,7 @@ async def get_voting_event_by_id(event_id: int, request: Request, db: AsyncSessi
     )
 
     voter_counts_dict = {row.voting_event_id: row.unique_voters for row in voter_counts.fetchall()}
-    
+
     event_data = {
     "id": event.id,
     "title": event.title,

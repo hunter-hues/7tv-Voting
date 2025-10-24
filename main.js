@@ -93,5 +93,23 @@ voteCreationButton.addEventListener('click', async function() {
 });
 
 profileButton.addEventListener('click', async function() {
-    contentArea.innerHTML = '<h2>Profile/settings coming soon</h2>';
+    contentArea.innerHTML = `
+        <h2>Profile</h2>
+        <button id="logout-button">Logout</button>
+    `;
 })
+
+// Add this after the profileButton event listener
+document.addEventListener('click', async function(event) {
+    if (event.target.id === 'logout-button') {
+        try {
+            const response = await fetch('/auth/logout');
+            if (response.ok) {
+                // Reload the page to reset everything
+                window.location.reload();
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    }
+});

@@ -6,6 +6,7 @@ __pycache__/
 # Virtual environments
 venv/
 venv*/  # Catches venv312 or venv3.10, etc.
+/venv312
 
 # Editor-specific files (optional but good practice)
 .vscode/

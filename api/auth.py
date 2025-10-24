@@ -3,11 +3,12 @@ from fastapi.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 import httpx
 import os
+import json
 from dotenv import load_dotenv
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, date
 from database import get_database
-from models import User
+from models import User, ChannelTokens
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +24,7 @@ oauth.register(
     client_secret=os.getenv('TWITCH_CLIENT_SECRET'),
     authorize_url='https://id.twitch.tv/oauth2/authorize',
     access_token_url='https://id.twitch.tv/oauth2/token',
-    client_kwargs={'scope': 'user:read:email'}
+    client_kwargs={'scope': 'user:read:email channel:read:subscriptions'}
 )
 
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -92,12 +93,15 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                     new_user = User(
                         twitch_user_id=user_object['id'],
                         twitch_username=twitch_username,
-                        display_name=user_object['display_name'],
                         sevenTV_id=seventv_id,
                         login_count=1,
                         last_login=datetime.utcnow(),
                         last_seen_date=date.today(),
-                        daily_visits=1
+                        daily_visits=1,
+                        access_token=access_token,
+                        refresh_token=token_data.get("refresh_token"),
+                        token_expires_at=datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600)),
+                        token_scopes=json.dumps(token_data.get("scope", []))
                     )
                     db.add(new_user)
                     await db.commit() 
@@ -115,7 +119,31 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                     # Keep login count for backwards compatibility
                     existing_user.login_count += 1
                     existing_user.last_login = datetime.utcnow()
+                    # In your existing user update section (around line 122-127):
+                    print(f"Updating tokens for user: {existing_user.twitch_username}")
+                    print(f"Access token: {access_token}")
+                    print(f"Token data: {token_data}")
+
                     await db.commit()
+                # Update tokens for ALL users (both new and existing)
+                if existing_user:
+                    # For existing users, update their tokens
+                    existing_user.access_token = access_token
+                    existing_user.refresh_token = token_data.get("refresh_token")
+                    existing_user.token_expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600))
+                    existing_user.token_scopes = json.dumps(token_data.get("scope", []))
+                    # Also store tokens in ChannelTokens for subscriber checks
+                    channel_token = ChannelTokens(
+                        user_id=existing_user.id,
+                        channel_username=existing_user.twitch_username,
+                        access_token=access_token,
+                        refresh_token=token_data.get("refresh_token"),
+                        expires_at=datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600)),
+                        scopes=json.dumps(token_data.get("scope", []))
+                    )
+                    db.add(channel_token)
+                    await db.commit()
+                # For new users, tokens are already set in the User() constructor
 
                 request.session["user"] = user_object
                 return RedirectResponse(url="/", status_code=302)
@@ -141,3 +169,8 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_data
         return {"authenticated": True, "user": request.session.get("user")}
     else:
         return {"authenticated": False, "user": "not authenticated"}
+
+@router.get('/auth/logout')
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/", status_code=302)

@@ -6,6 +6,7 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
+    twitch_user_id = Column(String, unique=True, nullable=False)
     twitch_username = Column(String, unique=True, nullable=False)
     sevenTV_id = Column(String, unique=True, nullable=False)
     can_create_votes_for = Column(ARRAY(String), default=[])
@@ -15,6 +16,11 @@ class User(Base):
     last_login = Column(DateTime(timezone=True))
     last_seen_date = Column(Date)  # Track last daily visit
     daily_visits = Column(Integer, default=0)  # Count of unique days visited
+    # Add these fields after your existing User fields:
+    access_token = Column(String)
+    refresh_token = Column(String)
+    token_expires_at = Column(DateTime(timezone=True))
+    token_scopes = Column(String)  # JSON string of scopes
 
 class VotingEvent(Base):
     __tablename__ = "voting_events"
@@ -50,3 +56,16 @@ class PendingPermissions(Base):
     granted_by_user_id = Column(Integer, ForeignKey("users.id"))
     permission_type = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class ChannelTokens(Base):
+    __tablename__ = "channel_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    channel_username = Column(String, nullable=False)  # The channel they manage
+    access_token = Column(String, nullable=False)
+    refresh_token = Column(String)
+    expires_at = Column(DateTime(timezone=True))
+    scopes = Column(String)  # JSON string of granted scopes
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
