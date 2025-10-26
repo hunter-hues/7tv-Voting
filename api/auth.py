@@ -24,7 +24,7 @@ oauth.register(
     client_secret=os.getenv('TWITCH_CLIENT_SECRET'),
     authorize_url='https://id.twitch.tv/oauth2/authorize',
     access_token_url='https://id.twitch.tv/oauth2/token',
-    client_kwargs={'scope': 'user:read:email channel:read:subscriptions'}
+    client_kwargs={'scope': 'user:read:email channel:read:subscriptions user:read:follows'}
 )
 
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -88,7 +88,8 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                             seventv_id = seventv_data['id']
                         
                         else:
-                            seventv_id = None
+                            # Use a placeholder value for users without a 7TV account
+                            seventv_id = f"no_account_{twitch_username}"
 
                     new_user = User(
                         twitch_user_id=user_object['id'],

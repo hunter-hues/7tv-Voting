@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 from pydantic import BaseModel
 from typing import Optional, List
 from api.twitch_api import check_user_follows_channel, check_user_subscribed_to_channel
+import httpx
+import os
 
 router = APIRouter()
 
@@ -132,7 +134,7 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
         return {"success": False, "message": "User not in database"}
 
     result = await db.execute(
-        select(VotingEvent, User.twitch_username)
+        select(VotingEvent, User.twitch_username, User.twitch_user_id)
         .join(User, VotingEvent.creator_id == User.id)
         .order_by(VotingEvent.id.asc())  
     )
@@ -157,7 +159,8 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
 
     for row in voting_events:
         event = row[0]
-        creator = row[1]
+        creator_username = row[1]
+        creator_twitch_user_id = row[2]
 
         user_can_access = False
         # Event creator always has access
@@ -165,27 +168,23 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
             user_can_access = True
         else:
             # Check permission levels for everyone else
-            print(f"DEBUG: event.specific_users = {event.specific_users}, type = {type(event.specific_users)}")
-            print(f"DEBUG: user_session['login'] = {user_session['login']}")
-            
             if event.permission_level == "all":
                 user_can_access = True 
             elif event.permission_level == "specific":
-                print(f"DEBUG: Checking specific_users permission: '{user_session['login']}' in {event.specific_users} = {user_session['login'] in event.specific_users}")
                 if user_session["login"] in event.specific_users:
                     user_can_access = True  
             elif event.permission_level == "followers":
                 # Check if user follows the event creator
                 user_can_access = await check_user_follows_channel(
-                    user_id=str(user.id),
-                    channel_id=str(event.creator_id), 
+                    user_id=str(user.twitch_user_id),  # Use twitch_user_id instead of user.id
+                    channel_id=str(creator_twitch_user_id),  # Need to get this from creator
                     access_token=user.access_token
                 )
             elif event.permission_level == "subscribers":
                 # Check if user is subscribed to the event creator
                 user_can_access = await check_user_subscribed_to_channel(
-                    user_id=str(user.id),
-                    broadcaster_id=str(event.creator_id),
+                    user_id=str(user.twitch_user_id),
+                    broadcaster_id=str(creator_twitch_user_id),
                     db=db
                 )
 
@@ -274,6 +273,26 @@ async def create_vote(vote_data: VoteEventCreate, request: Request, db: AsyncSes
     user = result.scalar_one_or_none()
     if not user: 
         return {"success": False, "message": "User not in database"}
+
+    # Check if user has a valid 7TV account
+    if user.sevenTV_id and user.sevenTV_id.startswith("no_account_"):
+        # User doesn't have a 7TV account
+        return {"success": False, "message": "You need a 7TV account to create voting events. Please create one at 7tv.app and sign in again."}
+
+    # Refresh 7TV ID if it looks like a placeholder
+    if user.sevenTV_id and user.sevenTV_id.startswith("no_account_"):
+        base_url = os.getenv("BASE_URL")
+        async with httpx.AsyncClient() as client:
+            seventv_response = await client.get(f"{base_url}/users/{user.twitch_username}")
+            if seventv_response.status_code == 200:
+                seventv_data = seventv_response.json()
+                if seventv_data and 'id' in seventv_data:
+                    user.sevenTV_id = seventv_data['id']
+                    await db.commit()
+                else:
+                    return {"success": False, "message": "You need a 7TV account to create voting events. Please create one at 7tv.app and sign in again."}
+            else:
+                return {"success": False, "message": "You need a 7TV account to create voting events. Please create one at 7tv.app and sign in again."}
 
     if vote_data.activeTimeTab == 'duration':
         duration_days = int(vote_data.duration.get('days', 0))
