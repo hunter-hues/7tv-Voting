@@ -22,10 +22,40 @@ class VoteEventCreate(BaseModel):
     permissions: str
     specific_users: List[str] = [] 
 
+class VoteEventUpdate(BaseModel):
+    title: Optional[str]
+    duration_hours: Optional[float]
+    end_time: Optional[datetime]
+    time_tab: Optional[str]
+    end_now: Optional[bool]
+
 class IndividualVoteSubmit(BaseModel):
     voting_event_id: int
     emote_id: str
     vote_choice: str
+
+
+async def can_user_edit_event(user: User, voting_event: VotingEvent, db: AsyncSession):
+    if not user or not voting_event:
+        return False
+    
+    result = await db.execute(select(User).where(User.id == voting_event.creator_id))
+    vote_creator = result.scalar_one_or_none()
+    
+    if not vote_creator:
+        return False
+
+    if user.id == voting_event.creator_id:
+        return True
+    
+    if vote_creator.moderators and user.twitch_username in vote_creator.moderators:
+        return True
+    
+    return False
+
+@router.put('/votes/update/{event_id}')
+async def update_voting_event(event_id: int, update_data: VoteEventUpdate, request: Request, db: AsyncSession = Depends(get_database)):
+    return True
 
 @router.get('/votes/check')
 async def check_vote_exists(voting_event_id: int, emote_id: str, request: Request, db: AsyncSession = Depends(get_database)):
@@ -149,11 +179,9 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
     voter_counts_dict = {row.voting_event_id: row.unique_voters for row in voter_counts.fetchall()}
 
     voting_events = result.fetchall()
-    print(f"Total voting events found: {len(voting_events)}")
 
     for row in voting_events:
         event = row[0]
-        print(f"Event: {event.title}, Permission: {event.permission_level}, Active: {event.is_active}")
 
     allowed_events = []
 
@@ -176,14 +204,14 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
             elif event.permission_level == "followers":
                 # Check if user follows the event creator
                 user_can_access = await check_user_follows_channel(
-                    user_id=str(user.twitch_user_id),  # Use twitch_user_id instead of user.id
+                    user = user,
                     channel_id=str(creator_twitch_user_id),  # Need to get this from creator
-                    access_token=user.access_token
+                    db = db
                 )
             elif event.permission_level == "subscribers":
                 # Check if user is subscribed to the event creator
                 user_can_access = await check_user_subscribed_to_channel(
-                    user_id=str(user.twitch_user_id),
+                    user = user,
                     broadcaster_id=str(creator_twitch_user_id),
                     db=db
                 )
@@ -274,11 +302,6 @@ async def create_vote(vote_data: VoteEventCreate, request: Request, db: AsyncSes
     if not user: 
         return {"success": False, "message": "User not in database"}
 
-    # Check if user has a valid 7TV account
-    if user.sevenTV_id and user.sevenTV_id.startswith("no_account_"):
-        # User doesn't have a 7TV account
-        return {"success": False, "message": "You need a 7TV account to create voting events. Please create one at 7tv.app and sign in again."}
-
     # Refresh 7TV ID if it looks like a placeholder
     if user.sevenTV_id and user.sevenTV_id.startswith("no_account_"):
         base_url = os.getenv("BASE_URL")
@@ -293,6 +316,18 @@ async def create_vote(vote_data: VoteEventCreate, request: Request, db: AsyncSes
                     return {"success": False, "message": "You need a 7TV account to create voting events. Please create one at 7tv.app and sign in again."}
             else:
                 return {"success": False, "message": "You need a 7TV account to create voting events. Please create one at 7tv.app and sign in again."}
+    
+    # Final check: if still placeholder after refresh attempt, reject
+    if user.sevenTV_id and user.sevenTV_id.startswith("no_account_"):
+        return {"success": False, "message": "You need a 7TV account to create voting events. Please create one at 7tv.app and sign in again."}
+
+    # Check 1: emoteSet exists and isn't empty
+    if not vote_data.emoteSet:
+        return {"success": False, "message": "You have no emote sets. Please add emote sets to your 7TV account at 7tv.app."}
+
+    # Check 2: id and name keys exist and aren't empty strings
+    if not vote_data.emoteSet.get('id') or not vote_data.emoteSet.get('name'):
+        return {"success": False, "message": "Invalid emote set selected. Please select a valid emote set or try again."}
 
     if vote_data.activeTimeTab == 'duration':
         duration_days = int(vote_data.duration.get('days', 0))
@@ -458,14 +493,14 @@ async def get_voting_event_by_id(event_id: int, request: Request, db: AsyncSessi
         elif event.permission_level == "followers":
             # Check if user follows the event creator
             user_can_access = await check_user_follows_channel(
-                user_id=str(user.id),
+                user = user,
                 channel_id=str(event.creator_id), 
-                access_token=user.access_token
+                db = db
             )
         elif event.permission_level == "subscribers":
             # Check if user is subscribed to the event creator
             user_can_access = await check_user_subscribed_to_channel(
-                user_id=str(user.id),
+                user = user,
                 broadcaster_id=str(event.creator_id),
                 db=db
             ) 

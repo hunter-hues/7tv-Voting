@@ -133,16 +133,31 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                     existing_user.refresh_token = token_data.get("refresh_token")
                     existing_user.token_expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600))
                     existing_user.token_scopes = json.dumps(token_data.get("scope", []))
-                    # Also store tokens in ChannelTokens for subscriber checks
-                    channel_token = ChannelTokens(
-                        user_id=existing_user.id,
-                        channel_username=existing_user.twitch_username,
-                        access_token=access_token,
-                        refresh_token=token_data.get("refresh_token"),
-                        expires_at=datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600)),
-                        scopes=json.dumps(token_data.get("scope", []))
+                                        # Also store tokens in ChannelTokens for subscriber checks
+                    # Check if ChannelTokens already exists for this user
+                    token_result = await db.execute(
+                        select(ChannelTokens).where(ChannelTokens.user_id == existing_user.id)
                     )
-                    db.add(channel_token)
+                    channel_token = token_result.scalar_one_or_none()
+                    
+                    if channel_token:
+                        # Update existing token to match User
+                        channel_token.access_token = access_token
+                        channel_token.refresh_token = token_data.get("refresh_token")
+                        channel_token.expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600))
+                        channel_token.scopes = json.dumps(token_data.get("scope", []))
+                    else:
+                        # Create new token entry
+                        channel_token = ChannelTokens(
+                            user_id=existing_user.id,
+                            channel_username=existing_user.twitch_username,
+                            access_token=access_token,
+                            refresh_token=token_data.get("refresh_token"),
+                            expires_at=datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600)),
+                            scopes=json.dumps(token_data.get("scope", []))
+                        )
+                        db.add(channel_token)
+                    
                     await db.commit()
                 # For new users, tokens are already set in the User() constructor
 
