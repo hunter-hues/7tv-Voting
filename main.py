@@ -18,7 +18,7 @@ app.include_router(users_router)
 app.include_router(emotes_router)
 app.include_router(auth_router)
 app.include_router(votes_router)
-app.add_middleware(SessionMiddleware, secret_key=os.getenv('SECRET_KEY'))
+app.add_middleware(SessionMiddleware, secret_key=os.getenv('SECRET_KEY', 'default_secret_key'))
 
 # Mount static files with the updated MIME types
 app.mount("/static", StaticFiles(directory=".", html=True), name="static")
