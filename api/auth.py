@@ -91,10 +91,32 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                             # Use a placeholder value for users without a 7TV account
                             seventv_id = f"no_account_{twitch_username}"
 
+                                                # Query for any pending permissions for this new user
+                        result = await db.execute(
+                            select(PendingPermissions).where(PendingPermissions.twitch_username == twitch_username)
+                        )
+                        pending_permissions = result.scalars().all()
+
+                        # Process pending permissions - get usernames from user IDs
+                        can_create_for = []
+                        for pending in pending_permissions:
+                            # Get the user who granted this permission
+                            granter_result = await db.execute(
+                                select(User).where(User.id == pending.granted_by_user_id)
+                            )
+                            granter_user = granter_result.scalar_one_or_none()
+                            
+                            if granter_user:
+                                can_create_for.append(granter_user.twitch_username)
+                            
+                            # Delete the pending permission since we're applying it
+                            await db.delete(pending)
+
                     new_user = User(
                         twitch_user_id=user_object['id'],
                         twitch_username=twitch_username,
                         sevenTV_id=seventv_id,
+                        can_create_votes_for=can_create_for if can_create_for else [],
                         login_count=1,
                         last_login=datetime.utcnow(),
                         last_seen_date=date.today(),
@@ -105,7 +127,7 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                         token_scopes=json.dumps(token_data.get("scope", []))
                     )
                     db.add(new_user)
-                    await db.commit() 
+                    await db.commit()
                     
                 else:
                     # Update daily visit tracking
@@ -162,6 +184,12 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                 # For new users, tokens are already set in the User() constructor
 
                 request.session["user"] = user_object
+                # Store database user ID for other endpoints
+                if existing_user:
+                    request.session["user_id"] = existing_user.id
+                else:
+                    await db.refresh(new_user)  # Refresh to get the auto-generated ID
+                    request.session["user_id"] = new_user.id
                 return RedirectResponse(url="/", status_code=302)
 
 @router.get('/auth/me')
@@ -181,10 +209,19 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_data
                     user.daily_visits += 1
                 user.last_seen_date = today
                 await db.commit()
+            
+            # Return both Twitch data AND database fields
+            return {
+                "authenticated": True,
+                "user": {
+                    **request.session.get("user"),  # Spread Twitch user data
+                    "can_create_votes_for": user.can_create_votes_for or []  # Add database field
+                }
+            }
         
         return {"authenticated": True, "user": request.session.get("user")}
     else:
-        return {"authenticated": False, "user": "not authenticated"}
+        return {"authenticated": False}
 
 @router.get('/auth/logout')
 async def logout(request: Request):

@@ -7,3 +7,4 @@ asyncpg
 python-dotenv
 authlib
 python-jose[cryptography]
+psycopg2-binary

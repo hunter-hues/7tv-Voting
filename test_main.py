@@ -68,7 +68,7 @@ async def search_emotes(search:str | None = None):
 
 @app.get("/emotes")
 async def search_emotes(search:str | None = None, limit:int | None = None):
-    if limit < 0:
+    if limit is not None and limit < 0:
         raise HTTPException(status_code=400, detail="Limit cannot be a negative value")
     
     matching_emotes = emote_list

@@ -24,6 +24,16 @@ export function displayEmoteSets(emoteSetsData, displayVoteCreation, setCurrentE
             parentDiv.addEventListener('click', function() {
                 console.log('Clicked emote set:', emoteSet.name);
                 setSelectedEmoteSet(emoteSet);
+                
+                const moderatorSection = document.getElementById('moderator-emote-sets');
+                if (moderatorSection) {
+                    moderatorSection.style.display = 'none';
+                }
+                const backButton = document.getElementById('mod-back-button');
+                if (backButton) {
+                    backButton.style.display = 'none';
+                }
+                
                 displayVoteCreation(emoteSet, username);
             });
         }

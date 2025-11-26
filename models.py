@@ -27,6 +27,7 @@ class VotingEvent(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     creator_id = Column(Integer, ForeignKey("users.id"))
+    emote_set_owner_id = Column(Integer, ForeignKey("users.id"))
     title = Column(String, nullable=False)
     emote_set_id = Column(String)
     emote_set_name = Column(String)

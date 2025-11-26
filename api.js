@@ -9,14 +9,18 @@ export async function getUser(username) {
         const data = await response.json();
         return data;
     } catch(error) {
-        console.error('Error:', error)
+        console.error('Error fetching user:', error);
+        return null; // Return null instead of undefined
     }
 }
 
 export async function getEmoteSets(username) {
     try {
         const userData = await getUser(username);
-        const userId = userData.id;
+        if (!userData) {
+            throw new Error('User not found or has no 7TV account');
+}
+const userId = userData.id;
 
         const emoteSetsData = await fetch(`/emotes/emote_sets/${userId}`);
         if (!emoteSetsData.ok) {

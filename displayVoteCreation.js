@@ -275,23 +275,39 @@ export function displayVoteCreation(selectedEmoteSet, username) {
     });
 
     function validateDuration() {
-        if (activeTimeTab !== 'duration') return;
+    if (activeTimeTab !== 'duration') return true;
 
-        const totalMinutes = (parseInt(durationDays.value) * 24 * 60) + (parseInt(durationHours.value) * 60) + (parseInt(durationMinutes.value));
-        if (totalMinutes === 0) {
-            durationError.style.display = 'block';
-            durationError.textContent = 'Duration cannot be empty';
-        } else if (totalMinutes < 5) {
-            durationError.style.display = 'block';
-            durationError.textContent = 'Minimum 5 minutes required';
-        } else if (totalMinutes > (31 * 24 * 60)) {
-            durationError.style.display = 'block';
-            durationError.textContent = 'Maximum 31 days allowed';
-        } else {
-            durationError.style.display = 'none';
-        }
-        validateForm();
+    const totalMinutes = (parseInt(durationDays.value) * 24 * 60) + 
+                        (parseInt(durationHours.value) * 60) + 
+                        parseInt(durationMinutes.value);
+    
+    // If duration is 0, that's OK - user might just be changing title
+    if (totalMinutes === 0) {
+        durationError.style.display = 'none';
+        return true;  // Allow 0 duration (won't be sent to backend)
     }
+    
+    // Must be at least 5 minutes from now
+    if (totalMinutes < 5) {
+        durationError.style.display = 'block';
+        durationError.textContent = 'Duration must be at least 5 minutes from now';
+        return false;
+    }
+    
+    // Calculate time from original creation
+    const createdAt = new Date(event.created_at);
+    const proposedEndTime = new Date(Date.now() + totalMinutes * 60 * 1000);
+    const maxEndTime = new Date(createdAt.getTime() + 31 * 24 * 60 * 60 * 1000); // 31 days from creation
+    
+    if (proposedEndTime > maxEndTime) {
+        durationError.style.display = 'block';
+        durationError.textContent = 'End time cannot be more than 31 days from original creation';
+        return false;
+    }
+    
+    durationError.style.display = 'none';
+    return true;
+}
 
     durationDays.addEventListener('blur', validateDuration);
     durationHours.addEventListener('blur', validateDuration);
