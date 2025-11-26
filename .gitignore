@@ -26,6 +26,18 @@ Thumbs.db
 
 # Pytest cache
 .cache/
+.pytest_cache/
+
+# Alembic (optional - ignore if you want to keep migrations private)
+# alembic/versions/
+
+# Database files (if you ever use SQLite locally)
+*.db
+*.sqlite
+*.sqlite3
+
+# Koyeb/deployment specific
+.koyeb/
 
 test_7tv.py
 test_main.py
