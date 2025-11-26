@@ -14,15 +14,9 @@ export async function getUser(username) {
     }
 }
 
-export async function getEmoteSets(username) {
+export async function getEmoteSets(sevenTV_id) {  
     try {
-        const userData = await getUser(username);
-        if (!userData) {
-            throw new Error('User not found or has no 7TV account');
-}
-const userId = userData.id;
-
-        const emoteSetsData = await fetch(`/emotes/emote_sets/${userId}`);
+        const emoteSetsData = await fetch(`/emotes/emote_sets/${sevenTV_id}`);  
         if (!emoteSetsData.ok) {
             throw new Error(`HTTP error! status: ${emoteSetsData.status}`);
         }
@@ -30,7 +24,7 @@ const userId = userData.id;
         return emoteSets;
     } catch (error) {
         console.error('Error in getEmoteSets:', error);
-        throw error; // Re-throw so the event listener can catch it
+        throw error;
     }
 }
 

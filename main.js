@@ -65,6 +65,7 @@ voteCreationButton.addEventListener('click', async function() {
 
     if (data.authenticated) {
         const username = data.user.login;
+        const sevenTV_id = data.user.sevenTV_id;
         console.log('Username:', username);
         
         contentArea.innerHTML = '';
@@ -83,7 +84,12 @@ voteCreationButton.addEventListener('click', async function() {
         contentArea.appendChild(voteCreation);
         let emoteSets = [];
         try {
-            emoteSets = await getEmoteSets(username);
+            // CHANGE: Check if sevenTV_id exists and is valid
+            if (sevenTV_id && !sevenTV_id.startsWith('no_account_')) {
+                emoteSets = await getEmoteSets(sevenTV_id);  // CHANGE: username → sevenTV_id
+            } else {
+                emoteSets = null;  // No 7TV account
+            }
             console.log('Emote sets:', emoteSets);
         } catch (error) {
             console.error('Error:', error);

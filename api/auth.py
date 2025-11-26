@@ -215,7 +215,8 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_data
                 "authenticated": True,
                 "user": {
                     **request.session.get("user"),  # Spread Twitch user data
-                    "can_create_votes_for": user.can_create_votes_for or []  # Add database field
+                    "can_create_votes_for": user.can_create_votes_for or [],  # Add database field
+                    "sevenTV_id": user.sevenTV_id  # ADD THIS LINE
                 }
             }
         
