@@ -3,11 +3,12 @@ from fastapi.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 import httpx
 import os
+import json
 from dotenv import load_dotenv
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, date
 from database import get_database
-from models import User
+from models import User, ChannelTokens
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +24,7 @@ oauth.register(
     client_secret=os.getenv('TWITCH_CLIENT_SECRET'),
     authorize_url='https://id.twitch.tv/oauth2/authorize',
     access_token_url='https://id.twitch.tv/oauth2/token',
-    client_kwargs={'scope': 'user:read:email'}
+    client_kwargs={'scope': 'user:read:email channel:read:subscriptions user:read:follows'}
 )
 
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -87,20 +88,46 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                             seventv_id = seventv_data['id']
                         
                         else:
-                            seventv_id = None
+                            # Use a placeholder value for users without a 7TV account
+                            seventv_id = f"no_account_{twitch_username}"
+
+                                                # Query for any pending permissions for this new user
+                        result = await db.execute(
+                            select(PendingPermissions).where(PendingPermissions.twitch_username == twitch_username)
+                        )
+                        pending_permissions = result.scalars().all()
+
+                        # Process pending permissions - get usernames from user IDs
+                        can_create_for = []
+                        for pending in pending_permissions:
+                            # Get the user who granted this permission
+                            granter_result = await db.execute(
+                                select(User).where(User.id == pending.granted_by_user_id)
+                            )
+                            granter_user = granter_result.scalar_one_or_none()
+                            
+                            if granter_user:
+                                can_create_for.append(granter_user.twitch_username)
+                            
+                            # Delete the pending permission since we're applying it
+                            await db.delete(pending)
 
                     new_user = User(
                         twitch_user_id=user_object['id'],
                         twitch_username=twitch_username,
-                        display_name=user_object['display_name'],
                         sevenTV_id=seventv_id,
+                        can_create_votes_for=can_create_for if can_create_for else [],
                         login_count=1,
                         last_login=datetime.utcnow(),
                         last_seen_date=date.today(),
-                        daily_visits=1
+                        daily_visits=1,
+                        access_token=access_token,
+                        refresh_token=token_data.get("refresh_token"),
+                        token_expires_at=datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600)),
+                        token_scopes=json.dumps(token_data.get("scope", []))
                     )
                     db.add(new_user)
-                    await db.commit() 
+                    await db.commit()
                     
                 else:
                     # Update daily visit tracking
@@ -115,9 +142,54 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                     # Keep login count for backwards compatibility
                     existing_user.login_count += 1
                     existing_user.last_login = datetime.utcnow()
+                    # In your existing user update section (around line 122-127):
+                    print(f"Updating tokens for user: {existing_user.twitch_username}")
+                    print(f"Access token: {access_token}")
+                    print(f"Token data: {token_data}")
+
                     await db.commit()
+                # Update tokens for ALL users (both new and existing)
+                if existing_user:
+                    # For existing users, update their tokens
+                    existing_user.access_token = access_token
+                    existing_user.refresh_token = token_data.get("refresh_token")
+                    existing_user.token_expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600))
+                    existing_user.token_scopes = json.dumps(token_data.get("scope", []))
+                                        # Also store tokens in ChannelTokens for subscriber checks
+                    # Check if ChannelTokens already exists for this user
+                    token_result = await db.execute(
+                        select(ChannelTokens).where(ChannelTokens.user_id == existing_user.id)
+                    )
+                    channel_token = token_result.scalar_one_or_none()
+                    
+                    if channel_token:
+                        # Update existing token to match User
+                        channel_token.access_token = access_token
+                        channel_token.refresh_token = token_data.get("refresh_token")
+                        channel_token.expires_at = datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600))
+                        channel_token.scopes = json.dumps(token_data.get("scope", []))
+                    else:
+                        # Create new token entry
+                        channel_token = ChannelTokens(
+                            user_id=existing_user.id,
+                            channel_username=existing_user.twitch_username,
+                            access_token=access_token,
+                            refresh_token=token_data.get("refresh_token"),
+                            expires_at=datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 3600)),
+                            scopes=json.dumps(token_data.get("scope", []))
+                        )
+                        db.add(channel_token)
+                    
+                    await db.commit()
+                # For new users, tokens are already set in the User() constructor
 
                 request.session["user"] = user_object
+                # Store database user ID for other endpoints
+                if existing_user:
+                    request.session["user_id"] = existing_user.id
+                else:
+                    await db.refresh(new_user)  # Refresh to get the auto-generated ID
+                    request.session["user_id"] = new_user.id
                 return RedirectResponse(url="/", status_code=302)
 
 @router.get('/auth/me')
@@ -137,7 +209,21 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_data
                     user.daily_visits += 1
                 user.last_seen_date = today
                 await db.commit()
+            
+            # Return both Twitch data AND database fields
+            return {
+                "authenticated": True,
+                "user": {
+                    **request.session.get("user"),  # Spread Twitch user data
+                    "can_create_votes_for": user.can_create_votes_for or []  # Add database field
+                }
+            }
         
         return {"authenticated": True, "user": request.session.get("user")}
     else:
-        return {"authenticated": False, "user": "not authenticated"}
+        return {"authenticated": False}
+
+@router.get('/auth/logout')
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/", status_code=302)

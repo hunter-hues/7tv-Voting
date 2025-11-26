@@ -5,6 +5,7 @@ from api.users import router as users_router
 from api.emotes import router as emotes_router
 from api.auth import router as auth_router
 from api.votes import router as votes_router
+from api.mods import router as mods_router 
 import mimetypes
 import os
 from dotenv import load_dotenv
@@ -18,7 +19,8 @@ app.include_router(users_router)
 app.include_router(emotes_router)
 app.include_router(auth_router)
 app.include_router(votes_router)
-app.add_middleware(SessionMiddleware, secret_key=os.getenv('SECRET_KEY'))
+app.include_router(mods_router) 
+app.add_middleware(SessionMiddleware, secret_key=os.getenv('SECRET_KEY', 'default_secret_key'))
 
 # Mount static files with the updated MIME types
 app.mount("/static", StaticFiles(directory=".", html=True), name="static")
@@ -34,7 +36,7 @@ async def favicon():
 async def serve_js_files(filename: str):
     if filename.endswith('.js'):
         from fastapi.responses import Response
-        with open(filename, 'r') as f:
+        with open(filename, 'r', encoding='utf-8') as f:
             content = f.read()
         return Response(content, media_type="application/javascript")
     return FileResponse(filename)

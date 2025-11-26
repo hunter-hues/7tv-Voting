@@ -9,14 +9,18 @@ export async function getUser(username) {
         const data = await response.json();
         return data;
     } catch(error) {
-        console.error('Error:', error)
+        console.error('Error fetching user:', error);
+        return null; // Return null instead of undefined
     }
 }
 
 export async function getEmoteSets(username) {
     try {
         const userData = await getUser(username);
-        const userId = userData.id;
+        if (!userData) {
+            throw new Error('User not found or has no 7TV account');
+}
+const userId = userData.id;
 
         const emoteSetsData = await fetch(`/emotes/emote_sets/${userId}`);
         if (!emoteSetsData.ok) {
@@ -86,4 +90,36 @@ export async function createNeutralVotesInBackground(votingEventId, emotes) {
     }
     
     console.log('Background neutral vote creation started');
+        // After all neutral votes are created, refresh the UI
+        setTimeout(async () => {
+            try {
+                const updatedVoteData = await getVoteCounts(votingEventId);
+                // Update all neutral buttons to show as active
+                document.querySelectorAll('.vote-neutral').forEach(button => {
+                    button.classList.remove('inactive');
+                    button.classList.add('active');
+                    // Update the count text too
+                    const emoteId = button.closest('.emote-div').id;
+                    button.textContent = `idc (${updatedVoteData.vote_counts[emoteId]?.neutral || 0})`;
+                });
+            } catch (error) {
+                console.error('Error updating button states:', error);
+            }
+        }, 2000); // Wait 2 seconds for background votes to complete
+}
+
+
+
+export async function getVoteCounts(eventId) {
+    try {
+        const response = await fetch(`/votes/${eventId}/counts`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error in getVoteCounts:', error);
+        throw error;
+    }
 }
