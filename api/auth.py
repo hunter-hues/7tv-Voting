@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, date
 from database import get_database
-from models import User, ChannelTokens
+from models import User, ChannelTokens, PendingPermissions
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
