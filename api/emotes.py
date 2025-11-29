@@ -122,7 +122,7 @@ async def get_mod_list(request: Request, db: AsyncSession = Depends(get_database
             print(f"Error fetching emote sets for {mod_for_username}: {str(e)}")
             continue
     
-        return {
-            "success": True,
-            "mod_channels": channels_and_emotes
-        }
+    return {
+        "success": True,
+        "mod_channels": channels_and_emotes
+    }

@@ -192,7 +192,7 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                     request.session["user_id"] = new_user.id
                 return RedirectResponse(url="/", status_code=302)
 
-@router.get('/auth/me')
+@@router.get('/auth/me')
 async def get_current_user(request: Request, db: AsyncSession = Depends(get_database)):
     if request.session.get("user"):
         # Update daily visit tracking for authenticated users
@@ -214,13 +214,15 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_data
             return {
                 "authenticated": True,
                 "user": {
-                    **request.session.get("user"),  # Spread Twitch user data
-                    "can_create_votes_for": user.can_create_votes_for or [],  # Add database field
-                    "sevenTV_id": user.sevenTV_id  # ADD THIS LINE
+                    **request.session.get("user"),
+                    "can_create_votes_for": user.can_create_votes_for or [],
+                    "sevenTV_id": user.sevenTV_id
                 }
             }
         
-        return {"authenticated": True, "user": request.session.get("user")}
+        # User doesn't exist in database - clear session and return unauthenticated
+        request.session.clear()
+        return {"authenticated": False}
     else:
         return {"authenticated": False}
 
