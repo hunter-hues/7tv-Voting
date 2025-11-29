@@ -296,14 +296,11 @@ export function displayVoteCreation(selectedEmoteSet, username) {
             return false;
         }
         
-        // Calculate time from original creation
-        const createdAt = new Date(event.created_at);
-        const proposedEndTime = new Date(Date.now() + totalMinutes * 60 * 1000);
-        const maxEndTime = new Date(createdAt.getTime() + 31 * 24 * 60 * 60 * 1000);
-        
-        if (proposedEndTime > maxEndTime) {
+        // Check if duration exceeds 31 days (for CREATE form - no event.created_at needed)
+        const maxMinutes = 31 * 24 * 60; // 31 days in minutes
+        if (totalMinutes > maxMinutes) {
             durationError.style.display = 'block';
-            durationError.textContent = 'End time cannot be more than 31 days from original creation';
+            durationError.textContent = 'Duration cannot be more than 31 days';
             validateForm();
             return false;
         }
@@ -313,9 +310,18 @@ export function displayVoteCreation(selectedEmoteSet, username) {
         return true;
     }
 
-    durationDays.addEventListener('blur', validateDuration);
-    durationHours.addEventListener('blur', validateDuration);
-    durationMinutes.addEventListener('blur', validateDuration);
+    durationDays.addEventListener('input', function() {
+        validateDuration();
+        validateForm(); 
+    });
+    durationHours.addEventListener('input', function() {
+        validateDuration();
+        validateForm();
+    });
+    durationMinutes.addEventListener('input', function() {
+        validateDuration();
+        validateForm();
+    });
 
     durationDays.addEventListener('input', validateForm);
     durationHours.addEventListener('input', validateForm);
