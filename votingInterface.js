@@ -776,6 +776,12 @@ async function openEditPopup(event) {
 function createEventButton(event, isActive) {
     const eventButton = document.createElement('button');
     eventButton.classList.add('event-button');
+    
+    // ADD: Add permission level as CSS class
+    if (event.permission_level) {
+        eventButton.classList.add(`permission-${event.permission_level}`);
+    }
+    
     eventButton.dataset.eventData = JSON.stringify(event)
     
     // Add visual styling for expired events

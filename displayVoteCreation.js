@@ -49,7 +49,7 @@ export function displayVoteCreation(selectedEmoteSet, username) {
     durationDays.type = 'number';
     durationDays.value = '0';
     durationDays.min = '0';
-    durationDays.max = '7';
+    durationDays.max = '31';
     durationDays.placeholder = '0';
     //Hours Input
     const hoursLabel = document.createElement('label');
