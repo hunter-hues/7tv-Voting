@@ -1,0 +1,35 @@
+/* Permission level indicators for voting events */
+.event-button.permission-all {
+    border-left: 4px solid #28a745; /* Green for public */
+}
+
+.event-button.permission-followers {
+    border-left: 4px solid #007bff; /* Blue for followers */
+}
+
+.event-button.permission-subscribers {
+    border-left: 4px solid #ffc107; /* Yellow/Orange for subscribers */
+}
+
+.event-button.permission-specific {
+    border-left: 4px solid #dc3545; /* Red for private/specific */
+}
+
+/* Existing styles (moved from inline) */
+.emote-set {
+    border: 1px solid #ccc;
+    margin: 10px;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.preview-emotes {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.emote {
+    width: 32px;
+    height: 32px;
+}

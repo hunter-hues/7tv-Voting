@@ -396,7 +396,8 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
             "emote_set_id": event.emote_set_id,
             "total_votes": voter_counts_dict.get(event.id, 0),
             "is_active": is_currently_active,
-            "can_edit": user.id == event.creator_id or (creator_moderators and user.twitch_username in creator_moderators)
+            "can_edit": user.id == event.creator_id or (creator_moderators and user.twitch_username in creator_moderators),  
+        "permission_level": event.permission_level
         }
         print(f"DEBUG: event_data for event {event.id}: owner_twitch_id = {event_data.get('owner_twitch_id')}")
         
