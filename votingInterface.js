@@ -82,36 +82,145 @@ async function createVotingInterface(event, isExpired = false) {
     // Add header to page
     contentArea.appendChild(infoHeader);
 
-    const emoteGrid = document.createElement('div');
-    emoteGrid.className = 'emote-voting-grid';
-    
-    // Add expired message if needed
-    if (isExpired) {
-        const expiredMessage = document.createElement('div');
-        expiredMessage.style.cssText = 'background: #ffebee; color: #c62828; padding: 10px; margin-bottom: 20px; border-radius: 4px; text-align: center; font-weight: bold;';
-        expiredMessage.textContent = ' This voting event has expired - Results are view-only';
-        emoteGrid.appendChild(expiredMessage);
-    }
-    
-    // Only create neutral votes for active events
-    if (!isExpired) {
-        createNeutralVotesInBackground(event.id, emotes);
+    // Pagination state
+    let currentPage = 1;
+    const emotesPerPage = 20;
+    let filteredEmotes = [...emotes];
+    let sortedEmotes = [...emotes];
+    let searchTerm = '';
+    let sortBy = 'default';
 
-        if (canEdit) {
-            const editButton = document.createElement('button');
-            editButton.id = 'edit-button';
-            editButton.textContent = 'Edit Event';  // Add text so it's visible!
-            editButton.style.cssText = 'margin-bottom: 20px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;';
+    // Helper function to filter emotes
+    function filterEmotes(emotes, searchTerm) {
+        if (!searchTerm) return emotes;
+        const term = searchTerm.toLowerCase();
+        return emotes.filter(emote => emote.name.toLowerCase().includes(term));
+    }
+
+    // Helper function to sort emotes
+    function sortEmotes(emotes, sortBy, voteCounts) {
+        const sorted = [...emotes];
         
-            editButton.addEventListener('click', async function () {
-                openEditPopup(event);
-            });
-            
-            emoteGrid.appendChild(editButton);  // <-- This line is missing!
+        switch(sortBy) {
+            case 'name-asc':
+                return sorted.sort((a, b) => a.name.localeCompare(b.name));
+            case 'name-desc':
+                return sorted.sort((a, b) => b.name.localeCompare(a.name));
+            case 'total-votes-desc':
+                return sorted.sort((a, b) => {
+                    const votesA = (voteCounts[a.id]?.keep || 0) + (voteCounts[a.id]?.remove || 0);
+                    const votesB = (voteCounts[b.id]?.keep || 0) + (voteCounts[b.id]?.remove || 0);
+                    return votesB - votesA;
+                });
+            case 'total-votes-asc':
+                return sorted.sort((a, b) => {
+                    const votesA = (voteCounts[a.id]?.keep || 0) + (voteCounts[a.id]?.remove || 0);
+                    const votesB = (voteCounts[b.id]?.keep || 0) + (voteCounts[b.id]?.remove || 0);
+                    return votesA - votesB;
+                });
+            case 'positive-votes-desc':
+                return sorted.sort((a, b) => {
+                    const votesA = voteCounts[a.id]?.keep || 0;
+                    const votesB = voteCounts[b.id]?.keep || 0;
+                    return votesB - votesA;
+                });
+            case 'positive-votes-asc':
+                return sorted.sort((a, b) => {
+                    const votesA = voteCounts[a.id]?.keep || 0;
+                    const votesB = voteCounts[b.id]?.keep || 0;
+                    return votesA - votesB;
+                });
+            case 'negative-votes-desc':
+                return sorted.sort((a, b) => {
+                    const votesA = voteCounts[a.id]?.remove || 0;
+                    const votesB = voteCounts[b.id]?.remove || 0;
+                    return votesB - votesA;
+                });
+            case 'negative-votes-asc':
+                return sorted.sort((a, b) => {
+                    const votesA = voteCounts[a.id]?.remove || 0;
+                    const votesB = voteCounts[b.id]?.remove || 0;
+                    return votesA - votesB;
+                });
+            case 'ratio-desc':
+                return sorted.sort((a, b) => {
+                    const keepA = voteCounts[a.id]?.keep || 0;
+                    const removeA = voteCounts[a.id]?.remove || 0;
+                    const keepB = voteCounts[b.id]?.keep || 0;
+                    const removeB = voteCounts[b.id]?.remove || 0;
+                    
+                    // Calculate ratio: keep/remove
+                    let ratioA, ratioB;
+                    
+                    if (removeA === 0) {
+                        // No remove votes: Infinity if has keep votes, 0 if no votes at all
+                        ratioA = keepA > 0 ? Infinity : 0;
+                    } else if (keepA === 0) {
+                        // Only remove votes: use negative value to represent "worse" ratio
+                        // More remove votes = more negative = lower ratio
+                        ratioA = -removeA;
+                    } else {
+                        // Normal case: keep/remove
+                        ratioA = keepA / removeA;
+                    }
+                    
+                    if (removeB === 0) {
+                        ratioB = keepB > 0 ? Infinity : 0;
+                    } else if (keepB === 0) {
+                        ratioB = -removeB;
+                    } else {
+                        ratioB = keepB / removeB;
+                    }
+                    
+                    // Sort: Infinity > positive ratios > 0 > negative ratios (more negative = lower)
+                    if (ratioA === Infinity && ratioB === Infinity) return 0;
+                    if (ratioA === Infinity) return -1;  // A is higher
+                    if (ratioB === Infinity) return 1;   // B is higher
+                    return ratioB - ratioA;
+                });
+            case 'ratio-asc':
+                return sorted.sort((a, b) => {
+                    const keepA = voteCounts[a.id]?.keep || 0;
+                    const removeA = voteCounts[a.id]?.remove || 0;
+                    const keepB = voteCounts[b.id]?.keep || 0;
+                    const removeB = voteCounts[b.id]?.remove || 0;
+                    
+                    // Calculate ratio: keep/remove
+                    let ratioA, ratioB;
+                    
+                    if (removeA === 0) {
+                        // No remove votes: Infinity if has keep votes, 0 if no votes at all
+                        ratioA = keepA > 0 ? Infinity : 0;
+                    } else if (keepA === 0) {
+                        // Only remove votes: use negative value to represent "worse" ratio
+                        // More remove votes = more negative = lower ratio
+                        ratioA = -removeA;
+                    } else {
+                        // Normal case: keep/remove
+                        ratioA = keepA / removeA;
+                    }
+                    
+                    if (removeB === 0) {
+                        ratioB = keepB > 0 ? Infinity : 0;
+                    } else if (keepB === 0) {
+                        ratioB = -removeB;
+                    } else {
+                        ratioB = keepB / removeB;
+                    }
+                    
+                    // Sort: negative ratios (more negative = lower) < 0 < positive ratios < Infinity
+                    if (ratioA === Infinity && ratioB === Infinity) return 0;
+                    if (ratioA === Infinity) return 1;  // A is higher
+                    if (ratioB === Infinity) return -1; // B is higher
+                    return ratioA - ratioB;
+                });
+            default:
+                return sorted; // Default order (as received from API)
         }
     }
-    
-    emotes.forEach(emote => {
+
+    // Function to create emote div with vote buttons
+    function createEmoteDiv(emote, voteCounts, userVotes, isExpired, event) {
         const emoteDiv = document.createElement('div');
         emoteDiv.id = emote.id;
         emoteDiv.classList.add('emote-div');
@@ -121,8 +230,7 @@ async function createVotingInterface(event, isExpired = false) {
         const emoteName = document.createElement('h3');
         emoteName.textContent = emote.name;
         const userVote = userVotes ? userVotes[emote.id] : null;
-        console.log(`Emote ID: ${emote.id}, User vote: ${userVote}`);
-        //add an image for buttons like a check, unsure what for neutral, and x or circle with cross
+        
         const keepButton = document.createElement('button');
         keepButton.className = 'vote-button vote-keep';
         keepButton.textContent = `yes (${voteCounts[emote.id]?.keep || 0})`;
@@ -159,6 +267,7 @@ async function createVotingInterface(event, isExpired = false) {
             removeButton.disabled = true;
         }
 
+        // Vote button event listeners
         keepButton.addEventListener('click', async function () {
             const response = await fetch('/votes/submit', {
                 method: 'POST',
@@ -171,8 +280,6 @@ async function createVotingInterface(event, isExpired = false) {
             });
             const result = await response.json();
             if (result.success) {
-                console.log('Vote submitted:', result.message);
-                // After successful vote submission
                 keepButton.classList.remove('inactive');
                 keepButton.classList.add('active');
                 neutralButton.classList.remove('active');
@@ -180,13 +287,10 @@ async function createVotingInterface(event, isExpired = false) {
                 removeButton.classList.remove('active');
                 removeButton.classList.add('inactive');
 
-                // Then refresh vote counts
                 const updatedVoteData = await getVoteCounts(event.id);
-                // Update button text with new counts
                 keepButton.textContent = `yes (${updatedVoteData.vote_counts[emote.id]?.keep || 0})`;
                 neutralButton.textContent = `idc (${updatedVoteData.vote_counts[emote.id]?.neutral || 0})`;
                 removeButton.textContent = `no (${updatedVoteData.vote_counts[emote.id]?.remove || 0})`;
-                // Update header statistics
                 const { totalKeep, totalNeutral, totalRemove } = calculateTotalVotes(updatedVoteData.vote_counts);
                 const voteStatsDiv = document.getElementById('vote-statistics');
                 if (voteStatsDiv) {
@@ -199,7 +303,7 @@ async function createVotingInterface(event, isExpired = false) {
             } else {
                 if (result.message === "This voting event has expired") {
                     alert('This voting event has expired. Refreshing...');
-                    await createVotingInterface(event, true); // true = expired
+                    await createVotingInterface(event, true);
                 } else {
                     console.error('Vote failed:', result.message);
                     alert('Failed to submit vote: ' + result.message);
@@ -219,8 +323,6 @@ async function createVotingInterface(event, isExpired = false) {
             });
             const result = await response.json();
             if (result.success) {
-                console.log('Vote submitted:', result.message);
-                // After successful vote submission
                 keepButton.classList.remove('active');
                 keepButton.classList.add('inactive');
                 neutralButton.classList.remove('active');
@@ -228,13 +330,12 @@ async function createVotingInterface(event, isExpired = false) {
                 removeButton.classList.remove('inactive');
                 removeButton.classList.add('active');
 
-                // Then refresh vote counts
                 const updatedVoteData = await getVoteCounts(event.id);
-                // Update button text with new counts
+                // Update voteCounts object for sorting
+                voteCounts[emote.id] = updatedVoteData.vote_counts[emote.id];
                 keepButton.textContent = `yes (${updatedVoteData.vote_counts[emote.id]?.keep || 0})`;
                 neutralButton.textContent = `idc (${updatedVoteData.vote_counts[emote.id]?.neutral || 0})`;
                 removeButton.textContent = `no (${updatedVoteData.vote_counts[emote.id]?.remove || 0})`;
-                // Update header statistics
                 const { totalKeep, totalNeutral, totalRemove } = calculateTotalVotes(updatedVoteData.vote_counts);
                 const voteStatsDiv = document.getElementById('vote-statistics');
                 if (voteStatsDiv) {
@@ -247,7 +348,7 @@ async function createVotingInterface(event, isExpired = false) {
             } else {
                 if (result.message === "This voting event has expired") {
                     alert('This voting event has expired. Refreshing...');
-                    await createVotingInterface(event, true); // true = expired
+                    await createVotingInterface(event, true);
                 } else {
                     console.error('Vote failed:', result.message);
                     alert('Failed to submit vote: ' + result.message);
@@ -267,8 +368,6 @@ async function createVotingInterface(event, isExpired = false) {
             });
             const result = await response.json();
             if (result.success) {
-                console.log('Vote submitted:', result.message);
-                // After successful vote submission
                 keepButton.classList.remove('active');
                 keepButton.classList.add('inactive');
                 neutralButton.classList.remove('inactive');
@@ -276,13 +375,12 @@ async function createVotingInterface(event, isExpired = false) {
                 removeButton.classList.remove('active');
                 removeButton.classList.add('inactive');
 
-                // Then refresh vote counts
                 const updatedVoteData = await getVoteCounts(event.id);
-                // Update button text with new counts
+                // Update voteCounts object for sorting
+                voteCounts[emote.id] = updatedVoteData.vote_counts[emote.id];
                 keepButton.textContent = `yes (${updatedVoteData.vote_counts[emote.id]?.keep || 0})`;
                 neutralButton.textContent = `idc (${updatedVoteData.vote_counts[emote.id]?.neutral || 0})`;
                 removeButton.textContent = `no (${updatedVoteData.vote_counts[emote.id]?.remove || 0})`;
-                // Update header statistics
                 const { totalKeep, totalNeutral, totalRemove } = calculateTotalVotes(updatedVoteData.vote_counts);
                 const voteStatsDiv = document.getElementById('vote-statistics');
                 if (voteStatsDiv) {
@@ -295,7 +393,7 @@ async function createVotingInterface(event, isExpired = false) {
             } else {
                 if (result.message === "This voting event has expired") {
                     alert('This voting event has expired. Refreshing...');
-                    await createVotingInterface(event, true); // true = expired
+                    await createVotingInterface(event, true);
                 } else {
                     console.error('Vote failed:', result.message);
                     alert('Failed to submit vote: ' + result.message);
@@ -308,9 +406,161 @@ async function createVotingInterface(event, isExpired = false) {
         emoteDiv.appendChild(keepButton);
         emoteDiv.appendChild(neutralButton);
         emoteDiv.appendChild(removeButton);
-        emoteGrid.appendChild(emoteDiv);
+        
+        return emoteDiv;
+    }
+
+    // Function to render emotes for current page
+    function renderEmotePage() {
+        // Filter and sort
+        filteredEmotes = filterEmotes(emotes, searchTerm);
+        sortedEmotes = sortEmotes(filteredEmotes, sortBy, voteCounts);
+        
+        // Calculate pagination
+        const totalPages = Math.ceil(sortedEmotes.length / emotesPerPage);
+        const startIndex = (currentPage - 1) * emotesPerPage;
+        const endIndex = startIndex + emotesPerPage;
+        const pageEmotes = sortedEmotes.slice(startIndex, endIndex);
+        
+        // Clear existing emotes from grid
+        const existingEmotes = emoteGrid.querySelectorAll('.emote-div');
+        existingEmotes.forEach(el => el.remove());
+        
+        // Render emotes for current page
+        pageEmotes.forEach(emote => {
+            const emoteDiv = createEmoteDiv(emote, voteCounts, userVotes, isExpired, event);
+            emoteGrid.appendChild(emoteDiv);
+        });
+        
+        // Update page info
+        pageInfo.textContent = `Page ${currentPage} of ${totalPages || 1} (${sortedEmotes.length} emotes)`;
+        
+        // Update button states
+        prevButton.disabled = currentPage === 1;
+        nextButton.disabled = currentPage >= totalPages || totalPages === 0;
+    }
+
+    const emoteGrid = document.createElement('div');
+    emoteGrid.className = 'emote-voting-grid';
+    
+    // Create pagination controls container
+    const paginationControls = document.createElement('div');
+    paginationControls.className = 'emote-pagination-controls';
+    
+    // Search input
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search emotes by name...';
+    searchInput.className = 'emote-search-input';
+    
+    // Sort select
+    const sortSelect = document.createElement('select');
+    sortSelect.className = 'emote-sort-select';
+    sortSelect.innerHTML = `
+        <option value="default">Default Order</option>
+        <option value="name-asc">Name (A-Z)</option>
+        <option value="name-desc">Name (Z-A)</option>
+        <option value="total-votes-desc">Total Votes (High to Low)</option>
+        <option value="total-votes-asc">Total Votes (Low to High)</option>
+        <option value="positive-votes-desc">Positive Votes (High to Low)</option>
+        <option value="positive-votes-asc">Positive Votes (Low to High)</option>
+        <option value="negative-votes-desc">Negative Votes (High to Low)</option>
+        <option value="negative-votes-asc">Negative Votes (Low to High)</option>
+        <option value="ratio-desc">Keep/Remove Ratio (High to Low)</option>
+        <option value="ratio-asc">Keep/Remove Ratio (Low to High)</option>
+    `;
+    
+    // Page info
+    const pageInfo = document.createElement('span');
+    pageInfo.className = 'emote-page-info';
+    
+    // Navigation buttons
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous';
+    prevButton.className = 'emote-page-button';
+    
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next';
+    nextButton.className = 'emote-page-button';
+    
+    // Assemble controls
+    const controlsLeft = document.createElement('div');
+    controlsLeft.style.display = 'flex';
+    controlsLeft.style.gap = '10px';
+    controlsLeft.style.alignItems = 'center';
+    controlsLeft.appendChild(searchInput);
+    controlsLeft.appendChild(sortSelect);
+    
+    const controlsRight = document.createElement('div');
+    controlsRight.style.display = 'flex';
+    controlsRight.style.gap = '10px';
+    controlsRight.style.alignItems = 'center';
+    controlsRight.appendChild(prevButton);
+    controlsRight.appendChild(pageInfo);
+    controlsRight.appendChild(nextButton);
+    
+    paginationControls.appendChild(controlsLeft);
+    paginationControls.appendChild(controlsRight);
+    
+    // Event listeners
+    searchInput.addEventListener('input', function() {
+        searchTerm = this.value;
+        currentPage = 1; // Reset to first page on search
+        renderEmotePage();
     });
     
+    sortSelect.addEventListener('change', function() {
+        sortBy = this.value;
+        currentPage = 1; // Reset to first page on sort change
+        renderEmotePage();
+    });
+    
+    prevButton.addEventListener('click', function() {
+        if (currentPage > 1) {
+            currentPage--;
+            renderEmotePage();
+        }
+    });
+    
+    nextButton.addEventListener('click', function() {
+        const totalPages = Math.ceil(sortedEmotes.length / emotesPerPage);
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderEmotePage();
+        }
+    });
+    
+    // Add expired message if needed
+    if (isExpired) {
+        const expiredMessage = document.createElement('div');
+        expiredMessage.style.cssText = 'background: #ffebee; color: #c62828; padding: 10px; margin-bottom: 20px; border-radius: 4px; text-align: center; font-weight: bold;';
+        expiredMessage.textContent = ' This voting event has expired - Results are view-only';
+        emoteGrid.appendChild(expiredMessage);
+    }
+    
+    // Only create neutral votes for active events
+    if (!isExpired) {
+        createNeutralVotesInBackground(event.id, emotes);
+
+        if (canEdit) {
+            const editButton = document.createElement('button');
+            editButton.id = 'edit-button';
+            editButton.textContent = 'Edit Event';
+            editButton.style.cssText = 'margin-bottom: 20px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;';
+        
+            editButton.addEventListener('click', async function () {
+                openEditPopup(event);
+            });
+            
+            emoteGrid.appendChild(editButton);
+        }
+    }
+    
+    // Initial render
+    renderEmotePage();
+    
+    // Add pagination controls and grid to content area
+    contentArea.appendChild(paginationControls);
     contentArea.appendChild(emoteGrid);
 }
 
