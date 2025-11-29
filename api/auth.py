@@ -192,7 +192,7 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                     request.session["user_id"] = new_user.id
                 return RedirectResponse(url="/", status_code=302)
 
-@@router.get('/auth/me')
+@router.get('/auth/me')
 async def get_current_user(request: Request, db: AsyncSession = Depends(get_database)):
     if request.session.get("user"):
         # Update daily visit tracking for authenticated users
