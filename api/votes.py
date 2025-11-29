@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from database import get_database
 from models import VotingEvent, User, IndividualVote
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 from datetime import datetime, timedelta, timezone as dt_timezone
@@ -21,7 +21,7 @@ class VoteEventCreate(BaseModel):
     duration: dict
     endTime: Optional[datetime] = None
     permissions: str
-    specific_users: List[str] = [] 
+    specific_users: Optional[List[str]] = None
 
 class VoteEventUpdate(BaseModel):
     title: Optional[str] = None
@@ -29,6 +29,7 @@ class VoteEventUpdate(BaseModel):
     end_time: Optional[datetime] = None
     time_tab: Optional[str] = None
     end_now: Optional[bool] = False
+    specific_users: Optional[List[str]] = None
 
 class IndividualVoteSubmit(BaseModel):
     voting_event_id: int
@@ -142,7 +143,45 @@ async def update_voting_event(event_id: int, update_data: VoteEventUpdate, reque
         event.end_time = new_end_time
         event.active_time_tab = "endTime"  # Change from duration to endTime
 
-    # Step 7: Commit once at the end
+    # Step 7: Update specific_users if provided (only for "specific" permission events)
+    if update_data.specific_users is not None:
+        if event.permission_level != "specific" and event.permission_level != "specific_users":
+            return {"success": False, "message": "Can only update specific_users for specific permission events"}
+        
+        # Get current users and new users
+        old_users = set(event.specific_users or [])
+        new_users = set(update_data.specific_users)
+        
+        # Find users being removed
+        removed_users = old_users - new_users
+        
+        # Delete votes from removed users
+        if removed_users:
+            # Get user IDs for removed usernames
+            removed_user_ids = []
+            for username in removed_users:
+                user_result = await db.execute(select(User).where(User.twitch_username == username))
+                removed_user = user_result.scalar_one_or_none()
+                if removed_user:
+                    removed_user_ids.append(removed_user.id)
+            
+            # Delete all votes from removed users for this event
+            if removed_user_ids:
+                await db.execute(
+                    delete(IndividualVote).where(
+                        IndividualVote.voting_event_id == event.id,
+                        IndividualVote.voter_id.in_(removed_user_ids)
+                    )
+                )
+        
+        # Update the specific_users list
+        event.specific_users = update_data.specific_users
+        
+        # Flag the ARRAY field as modified so SQLAlchemy detects the change
+        from sqlalchemy.orm import attributes
+        attributes.flag_modified(event, 'specific_users')
+
+    # Step 8: Commit once at the end
     await db.commit()
     # Refresh the event to get updated values
     await db.refresh(event)
@@ -397,7 +436,8 @@ async def get_voting_events(request: Request, db: AsyncSession = Depends(get_dat
             "total_votes": voter_counts_dict.get(event.id, 0),
             "is_active": is_currently_active,
             "can_edit": user.id == event.creator_id or (creator_moderators and user.twitch_username in creator_moderators),  
-        "permission_level": event.permission_level
+            "permission_level": event.permission_level,
+            "specific_users": event.specific_users or []
         }
         print(f"DEBUG: event_data for event {event.id}: owner_twitch_id = {event_data.get('owner_twitch_id')}")
         
@@ -743,6 +783,8 @@ async def get_voting_event_by_id(event_id: int, request: Request, db: AsyncSessi
     "is_active": is_currently_active,
     "time_remaining": time_left if is_currently_active else None,
     "time_ended": time_ended if not is_currently_active else None,
-    "can_edit": can_edit
+    "can_edit": can_edit,
+    "permission_level": event.permission_level,  
+    "specific_users": event.specific_users or []  
 }
     return {"success": True, "event": event_data}

@@ -539,6 +539,90 @@ async function openEditPopup(event) {
         validateEndTime();
     });
 
+    // Specific Users Section (only show if permission_level is "specific" or "specific_users")
+    let specificUsersSection = null;
+    let currentUsers = [];  // Declare outside so it's accessible in save handler
+    
+    if (event.permission_level === 'specific' || event.permission_level === 'specific_users') {
+        specificUsersSection = document.createElement('div');
+        specificUsersSection.className = 'form-section specific-users-section';
+        
+        const specificUsersLabel = document.createElement('label');
+        specificUsersLabel.className = 'specific-users-label';
+        specificUsersLabel.textContent = 'Allowed Users';
+        
+        // Username input
+        const usernameInput = document.createElement('input');
+        usernameInput.type = 'text';
+        usernameInput.placeholder = 'Enter Twitch username';
+        usernameInput.className = 'specific-users-input';
+        
+        // Add user button
+        const addUserButton = document.createElement('button');
+        addUserButton.type = 'button';
+        addUserButton.textContent = 'Add User';
+        addUserButton.className = 'add-user-button';
+        
+        // Users list display
+        const usersList = document.createElement('div');
+        usersList.id = 'edit-users-list';
+        usersList.className = 'edit-users-list';
+        
+        // Current users list (from event)
+        currentUsers = [...(event.specific_users || [])];
+        
+        // Function to update users list display
+        function updateUsersListDisplay() {
+            usersList.innerHTML = '';
+            currentUsers.forEach((username, index) => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'user-item';
+                
+                const usernameSpan = document.createElement('span');
+                usernameSpan.textContent = username;
+                
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.textContent = 'Remove';
+                removeButton.className = 'remove-user-button';
+                removeButton.onclick = () => {
+                    currentUsers.splice(index, 1);
+                    updateUsersListDisplay();
+                };
+                
+                userDiv.appendChild(usernameSpan);
+                userDiv.appendChild(removeButton);
+                usersList.appendChild(userDiv);
+            });
+        }
+        
+        // Add user functionality
+        addUserButton.addEventListener('click', function() {
+            const username = usernameInput.value.trim();
+            if (username && !currentUsers.includes(username)) {
+                currentUsers.push(username);
+                updateUsersListDisplay();
+                usernameInput.value = '';
+            }
+        });
+        
+        // Allow Enter key to add user
+        usernameInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addUserButton.click();
+            }
+        });
+        
+        // Initial display
+        updateUsersListDisplay();
+        
+        specificUsersSection.appendChild(specificUsersLabel);
+        specificUsersSection.appendChild(usernameInput);
+        specificUsersSection.appendChild(addUserButton);
+        specificUsersSection.appendChild(usersList);
+    }
+
     // Buttons Section
     const buttonSection = document.createElement('div');
     buttonSection.style.cssText = 'display: flex; gap: 10px; margin-top: 20px;';
@@ -696,6 +780,11 @@ async function openEditPopup(event) {
             updateData.time_tab = 'endTime';
             updateData.end_time = new Date(endTimeInput.value).toISOString();
         }
+
+        // Include specific_users if this is a specific permission event
+        if (specificUsersSection && (event.permission_level === 'specific' || event.permission_level === 'specific_users')) {
+            updateData.specific_users = currentUsers;
+        }
         
         console.log('Update data being sent:', updateData);
         console.log('Event ID:', event.id);
@@ -761,6 +850,9 @@ async function openEditPopup(event) {
     editForm.appendChild(header);
     editForm.appendChild(titleSection);
     editForm.appendChild(timeSection);
+    if (specificUsersSection) {
+        editForm.appendChild(specificUsersSection);
+    }
     editForm.appendChild(buttonSection);
     
     popup.appendChild(editForm);
