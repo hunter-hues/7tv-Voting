@@ -2,25 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>7TV Emote Sets</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link href="https://fonts.googleapis.com/css2?family=Anta&family=Rubik+Doodle+Shadow&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <!-- ... rest stays the same ... -->
-  <div id="login-with-twitch-section" style="display:none">
-    <label for="login-with-twitch-btn">Sign in with Twitch</label>
-    <button id="login-with-twitch-btn">Login</button>
-  </div>
-  <div id="dashboard" style="display: none">
-    <nav>
-      <button id="available-votes-btn">Available Voting Events</button>
-      <button id="create-vote-btn">Create Voting Event</button>
-      <button id="profile-btn">Profile</button>
-    </nav>
+  <!-- Background Video -->
+  <video class="background-video" autoplay muted loop playsinline>
+    <source src="a7a4300630ed2733eca4a8bb584c3086a66063d78e2f829faf465d96ff388a93.webm" type="video/webm">
+  </video>
 
+  <!-- Gradient Overlay -->
+  <div class="background-overlay"></div>
+
+  <!-- Dashboard - always present -->
+  <div id="dashboard">
+    <nav class="glass-nav">
+      <button id="home-btn" class="nav-button-overlay">
+        <span>7TVote</span>
+      </button>
+      <div class="nav-center">
+        <button id="available-votes-btn" class="nav-button-overlay">
+          <span>Events</span>
+        </button>
+        <button id="create-vote-btn" class="nav-button-overlay">
+          <span>Create</span>
+        </button>
+      </div>
+      <button id="profile-btn" class="nav-button-overlay">
+        <span>Profile</span>
+      </button>
+    </nav>
     <div id="content-area">
-      
+      <!-- Homepage content - visible to everyone -->
+      <p id="app-description">An unofficial 7TV utility made by hunter_hues, easily find emotes to remove when space is tight</p>
+      <div id="social-links">
+        <a href="#" class="social-link">Twitter</a>
+        <a href="#" class="social-link">GitHub</a>
+      </div>
     </div>
+  </div>
+
+  <!-- Login popup overlay - just the login button -->
+  <div id="login-overlay" class="hidden">
+    <div id="login-backdrop"></div>
+    <div id="login-popup">
+      <label for="login-with-twitch-btn">Sign in with Twitch</label>
+      <button id="login-with-twitch-btn" class="glass-button">
+        <span>Login</span>
+      </button>
+    </div>
+  </div>
+
   <script type="module" src="/main.js"></script>
 </body>
 </html>

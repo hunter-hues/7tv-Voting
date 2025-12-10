@@ -10,7 +10,15 @@ async def check_user_follows_channel(user: User, channel_id: str, db: AsyncSessi
     Check if a user follows a specific channel using Twitch Helix API
     """
     user_id = user.twitch_user_id
-    access_token = user.access_token
+    # Get access token from ChannelTokens (stored for this user)
+    token_result = await db.execute(
+        select(ChannelTokens).where(ChannelTokens.user_id == user.id)
+    )
+    channel_token = token_result.scalar_one_or_none()
+    if not channel_token or not channel_token.access_token:
+        print(f"DEBUG [Follow Check - retry {retry_count}]: No access token found for user {user.twitch_username}")
+        return False
+    access_token = channel_token.access_token
     print(f"DEBUG [Follow Check - retry {retry_count}]: Using token ending in ...{access_token[-10:] if access_token else 'None'}")
     try:
         client_id = os.getenv("TWITCH_CLIENT_ID")
@@ -42,8 +50,16 @@ async def check_user_follows_channel(user: User, channel_id: str, db: AsyncSessi
                     refresh_result = await refresh_access_token(user, db)
                     
                     if refresh_result.get("Success"):
+                        # Get the refreshed token from ChannelTokens
+                        token_result = await db.execute(
+                            select(ChannelTokens).where(ChannelTokens.user_id == user.id)
+                        )
+                        channel_token = token_result.scalar_one_or_none()
+                        if not channel_token or not channel_token.access_token:
+                            print("Token refresh succeeded but no token found in ChannelTokens")
+                            return False
                         user_id = user.twitch_user_id
-                        access_token = user.access_token
+                        access_token = channel_token.access_token
                         print(f"DEBUG [Follow Check - retry {retry_count}]: Using token ending in ...{access_token[-10:] if access_token else 'None'}")
                         print("Token refreshed, retrying follow check")
                         return await check_user_follows_channel(user, channel_id, db, retry_count + 1)
@@ -169,7 +185,15 @@ async def check_user_subscribed_to_channel(user: User, broadcaster_id: str, db: 
         return False
 
 async def refresh_access_token(user: User, db: AsyncSession):
-    try:    
+    try:
+        # Get refresh token from ChannelTokens
+        token_result = await db.execute(select(ChannelTokens).where(ChannelTokens.user_id == user.id))
+        token_row = token_result.first()
+        if not token_row:
+            return {"Success": False, "message": "No token found in ChannelTokens"}
+        user_token = token_row[0]
+        refresh_token = user_token.refresh_token or user.refresh_token  # Fallback to User model if needed
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://id.twitch.tv/oauth2/token",
@@ -177,7 +201,7 @@ async def refresh_access_token(user: User, db: AsyncSession):
                     "client_id": os.getenv("TWITCH_CLIENT_ID"),
                     "client_secret": os.getenv("TWITCH_CLIENT_SECRET"),
                     "grant_type": "refresh_token",
-                    "refresh_token": user.refresh_token
+                    "refresh_token": refresh_token
                 }
             )
 
@@ -188,20 +212,20 @@ async def refresh_access_token(user: User, db: AsyncSession):
                     print(f"ERROR: No access_token in response: {data}")
                     return {"Success": False, "message": "Invalid response from Twitch"}
 
-                token_result = await db.execute(select(ChannelTokens).where(ChannelTokens.user_id == user.id))
-                token_row = token_result.first()
-                if token_row:
-                    user_token = token_row[0]
+                # Update tokens (user_token already fetched earlier)
+                if user_token:
                     user_token.access_token = data['access_token']
-                    user.access_token = data['access_token']
-                    print(f"DEBUG [Refresh]: Updated user.access_token to ...{data['access_token'][-10:]}")
+                    user.access_token = data['access_token']  # Also update User model for backward compatibility
+                    print(f"DEBUG [Refresh]: Updated ChannelTokens.access_token to ...{data['access_token'][-10:]}")
 
                     # Check if Twitch sent a new refresh token
                     if 'refresh_token' in data:
                         user_token.refresh_token = data['refresh_token']
-                        user.refresh_token = data['refresh_token']
+                        user.refresh_token = data['refresh_token']  # Also update User model for backward compatibility
 
                     await db.commit()
+                else:
+                    return {"Success": False, "message": "Token record not found"}
 
                 return {"Success": True, "access_token": data['access_token']}
             
