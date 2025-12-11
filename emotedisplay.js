@@ -6,6 +6,7 @@ export function displayEmoteSets(emoteSetsData, displayVoteCreation, setCurrentE
     container.innerHTML = '';
     for(let emoteSet of emoteSetsData.emote_sets) {
         const parentDiv = document.createElement('button');
+        parentDiv.className = 'emote-set';
         const setName = document.createElement('h3');
         setName.textContent = emoteSet.name
         parentDiv.appendChild(setName)
@@ -16,22 +17,26 @@ export function displayEmoteSets(emoteSetsData, displayVoteCreation, setCurrentE
             noEmotesMsg.textContent = 'No emotes';
             parentDiv.appendChild(noEmotesMsg);
         } else {
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'preview-emotes';
             for(let emote of emoteSet.preview_emotes) {
                 const emotePreviewImg = document.createElement('img');
+                emotePreviewImg.className = 'emote';
                 emotePreviewImg.src = getEmoteImgUrl(emote.id, 2);
-                parentDiv.appendChild(emotePreviewImg);
+                previewContainer.appendChild(emotePreviewImg);
             }
+            parentDiv.appendChild(previewContainer);
             parentDiv.addEventListener('click', function() {
                 console.log('Clicked emote set:', emoteSet.name);
                 setSelectedEmoteSet(emoteSet);
                 
                 const moderatorSection = document.getElementById('moderator-emote-sets');
                 if (moderatorSection) {
-                    moderatorSection.style.display = 'none';
+                    moderatorSection.classList.add('hidden');
                 }
                 const backButton = document.getElementById('mod-back-button');
                 if (backButton) {
-                    backButton.style.display = 'none';
+                    backButton.classList.add('hidden');
                 }
                 
                 displayVoteCreation(emoteSet, username);

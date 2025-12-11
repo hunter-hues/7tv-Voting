@@ -1,5 +1,109 @@
 import { getEmotesFromSet, getEmoteImgUrl, createNeutralVote, createNeutralVotesInBackground, getVoteCounts } from "./api.js";
+import { getCachedUser } from './userCache.js';
 const contentArea = document.querySelector('#content-area');
+
+// Store active timers for cleanup
+const activeTimers = new Map();
+
+// Format time remaining with adaptive colon format
+function formatTimeRemaining(remainingMs) {
+    const totalSeconds = Math.floor(remainingMs / 1000);
+    const days = Math.floor(totalSeconds / (24 * 60 * 60));
+    const hours = Math.floor((totalSeconds % (24 * 60 * 60)) / (60 * 60));
+    const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
+    const seconds = totalSeconds % 60;
+    
+    // Adaptive display based on time remaining
+    if (days > 0) {
+        // More than 24 hours: D:HH:MM (no seconds)
+        return `${days}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    } else if (hours > 0) {
+        // 1-24 hours: HH:MM:SS
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    } else if (minutes > 0) {
+        // Less than 1 hour: MM:SS
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    } else {
+        // Less than 1 minute: SS
+        return `${String(seconds).padStart(2, '0')}`;
+    }
+}
+
+// Create countdown timer for an event button
+function createCountdownTimer(timeInfoElement, endTimeISO) {
+    const endTime = new Date(endTimeISO);
+    let intervalId = null;
+    let currentInterval = null;
+    
+    function scheduleNext() {
+        const now = new Date();
+        const remaining = endTime - now;
+        
+        if (remaining <= 0) {
+            timeInfoElement.textContent = "Ended";
+            timeInfoElement.classList.add('expired');
+            timeInfoElement.classList.remove('time-urgent', 'time-warning', 'time-normal');
+            if (intervalId) {
+                clearInterval(intervalId);
+                activeTimers.delete(timeInfoElement);
+            }
+            return;
+        }
+        
+        // Update text
+        timeInfoElement.textContent = formatTimeRemaining(remaining);
+        
+        // Update CSS classes
+        timeInfoElement.classList.remove('time-urgent', 'time-warning', 'time-normal');
+        if (remaining < 3600000) {
+            timeInfoElement.classList.add('time-urgent');
+        } else if (remaining < 86400000) {
+            timeInfoElement.classList.add('time-warning');
+        } else {
+            timeInfoElement.classList.add('time-normal');
+        }
+        
+        // Determine next interval
+        const nextInterval = remaining < 3600000 ? 1000 : 60000;
+        
+        // If interval changed, restart
+        if (currentInterval !== null && nextInterval !== currentInterval) {
+            clearInterval(intervalId);
+            currentInterval = nextInterval;
+            intervalId = setInterval(scheduleNext, currentInterval);
+            activeTimers.set(timeInfoElement, intervalId);
+        } else if (currentInterval === null) {
+            // First time
+            currentInterval = nextInterval;
+        }
+    }
+    
+    // Initial check
+    const now = new Date();
+    const remaining = endTime - now;
+    if (remaining <= 0) {
+        scheduleNext();
+        return null;
+    }
+    
+    // Initial update
+    scheduleNext();
+    
+    // Start interval
+    const startInterval = remaining < 3600000 ? 1000 : 60000;
+    currentInterval = startInterval;
+    intervalId = setInterval(scheduleNext, startInterval);
+    
+    return intervalId;
+}
+
+// Cleanup function for timers
+export function cleanupTimers() {
+        activeTimers.forEach((timerId, element) => {
+        clearInterval(timerId);
+    });
+    activeTimers.clear();
+}
 function calculateTotalVotes(voteCounts) {
     let totalKeep = 0, totalNeutral = 0, totalRemove = 0;
     for (const emoteId in voteCounts) {
@@ -13,10 +117,26 @@ function calculateTotalVotes(voteCounts) {
 async function createVotingInterface(event, isExpired = false) {
     console.log("Selected voting event:", event);
 
-    // Fetch current user
-    const authResponse = await fetch('/auth/me');
-    const authData = await authResponse.json();
+    // Cleanup any existing timers before clearing content
+    cleanupTimers();
 
+    // OPTIMIZATION #1: Parallelize initial API calls
+    const parallelStartTime = performance.now();
+    console.log('[PARALLEL API] Starting parallel API calls...');
+    
+    // Start all three API calls in parallel
+    const [authResponse, emotesData, voteData] = await Promise.all([
+        getCachedUser(),
+        getEmotesFromSet(event.emote_set_id),
+        getVoteCounts(event.id)
+    ]);
+    
+    const parallelEndTime = performance.now();
+    const parallelTime = parallelEndTime - parallelStartTime;
+    console.log(`[PARALLEL API] All API calls completed in ${parallelTime.toFixed(2)}ms (parallel)`);
+    
+    // Process results
+    const authData = authResponse;
     let currentUsername = null;
     if (authData.authenticated) {
         currentUsername = authData.user.login;
@@ -24,10 +144,8 @@ async function createVotingInterface(event, isExpired = false) {
     // Check if user can edit this event
     const canEdit = event.can_edit || false;
 
-    const emotesData = await getEmotesFromSet(event.emote_set_id);
     const emotes = emotesData.emotes;
     
-    const voteData = await getVoteCounts(event.id);
     if (!voteData.success) {
         console.error('Failed to get vote data:', voteData.error);
         return;
@@ -39,21 +157,48 @@ async function createVotingInterface(event, isExpired = false) {
 
     // Create event info header
     const infoHeader = document.createElement('div');
-    infoHeader.style.cssText = 'background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;';
+    infoHeader.className = 'event-info-header glass-card';
 
     // Event title and creator
     const titleSection = document.createElement('h2');
+    titleSection.className = 'event-title';
     titleSection.textContent = `"${event.title}"`;
-    titleSection.style.cssText = 'margin: 0 0 10px 0; color: #333;';
 
     const creatorInfo = document.createElement('p');
-    creatorInfo.textContent = `Created by ${event.creator_username} for emote set: ${event.emote_set_name}`;
-    creatorInfo.style.cssText = 'margin: 0 0 15px 0; color: #666;';
+    creatorInfo.className = 'event-creator-info';
+    creatorInfo.textContent = `Created by ${event.owner_username || event.creator_username} for emote set: ${event.emote_set_name}`;
 
     // Time info
     const timeInfo = document.createElement('p');
-    timeInfo.textContent = event.time_remaining || event.time_ended || 'Time info unavailable';
-    timeInfo.style.cssText = 'margin: 0 0 15px 0; font-weight: bold; color: ' + (isExpired ? '#dc3545' : '#28a745') + ';';
+    timeInfo.className = `event-time-info ${isExpired ? 'expired' : 'active'}`;
+
+    if (!isExpired) {
+        // Check if we have end_time for live countdown
+        if (event.end_time) {
+            // Set initial display
+            const endTime = new Date(event.end_time);
+            const now = new Date();
+            const remaining = endTime - now;
+            if (remaining > 0) {
+                timeInfo.textContent = formatTimeRemaining(remaining);
+                // Start countdown timer
+                const timerId = createCountdownTimer(timeInfo, event.end_time);
+                if (timerId) {
+                    // Store in map for cleanup
+                    activeTimers.set(timeInfo, timerId);
+                }
+            } else {
+                timeInfo.textContent = "Ended";
+                timeInfo.classList.add('expired');
+            }
+        } else {
+            // Fallback to static time_remaining if end_time not available
+            timeInfo.textContent = event.time_remaining || 'Time info unavailable';
+        }
+    } else {
+        timeInfo.textContent = event.time_ended || 'Time info unavailable';
+        timeInfo.classList.add('expired');
+    }
 
     // Calculate total votes across all emotes
     let totalKeep = 0, totalNeutral = 0, totalRemove = 0;
@@ -65,22 +210,19 @@ async function createVotingInterface(event, isExpired = false) {
 
     // Vote statistics
     const voteStats = document.createElement('div');
-    voteStats.id = 'vote-statistics';  // ADD THIS LINE RIGHT AFTER
+    voteStats.id = 'vote-statistics';
+    voteStats.className = 'vote-statistics';
     voteStats.innerHTML = `
         <strong>Vote Statistics:</strong><br>
         Total Voters: ${event.total_votes || 0}<br>
         Keep: ${totalKeep} | Neutral: ${totalNeutral} | Remove: ${totalRemove}
     `;
-    voteStats.style.cssText = 'margin: 0; color: #495057;';
 
     // Append all to header
     infoHeader.appendChild(titleSection);
     infoHeader.appendChild(creatorInfo);
     infoHeader.appendChild(timeInfo);
     infoHeader.appendChild(voteStats);
-
-    // Add header to page
-    contentArea.appendChild(infoHeader);
 
     // Pagination state
     let currentPage = 1;
@@ -89,6 +231,85 @@ async function createVotingInterface(event, isExpired = false) {
     let sortedEmotes = [...emotes];
     let searchTerm = '';
     let sortBy = 'default';
+
+    // Create emote grid early (needed for renderEmotePage)
+    const emoteGrid = document.createElement('div');
+    emoteGrid.className = 'emote-voting-grid';
+
+    // Create pagination controls container
+    const paginationControls = document.createElement('div');
+    paginationControls.className = 'emote-pagination-controls';
+
+    // Search input
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search emotes by name...';
+    searchInput.className = 'emote-search-input';
+
+    // Sort select
+    const sortSelect = document.createElement('select');
+    sortSelect.className = 'emote-sort-select';
+    sortSelect.innerHTML = `
+        <option value="default">Default Order</option>
+        <option value="name-asc">Name (A-Z)</option>
+        <option value="name-desc">Name (Z-A)</option>
+        <option value="total-votes-desc">Total Votes (High to Low)</option>
+        <option value="total-votes-asc">Total Votes (Low to High)</option>
+        <option value="positive-votes-desc">Positive Votes (High to Low)</option>
+        <option value="positive-votes-asc">Positive Votes (Low to High)</option>
+        <option value="negative-votes-desc">Negative Votes (High to Low)</option>
+        <option value="negative-votes-asc">Negative Votes (Low to High)</option>
+        <option value="ratio-desc">Keep/Remove Ratio (High to Low)</option>
+        <option value="ratio-asc">Keep/Remove Ratio (Low to High)</option>
+    `;
+
+    // Page info
+    const pageInfo = document.createElement('span');
+    pageInfo.className = 'emote-page-info';
+
+    // Navigation buttons
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous';
+    prevButton.className = 'emote-page-button';
+
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next';
+    nextButton.className = 'emote-page-button';
+
+    // Assemble controls
+    const controlsLeft = document.createElement('div');
+    controlsLeft.className = 'controls-left';
+    controlsLeft.appendChild(searchInput);
+    controlsLeft.appendChild(sortSelect);
+
+    const controlsRight = document.createElement('div');
+    controlsRight.className = 'controls-right';
+    controlsRight.appendChild(prevButton);
+    controlsRight.appendChild(pageInfo);
+    controlsRight.appendChild(nextButton);
+
+    paginationControls.appendChild(controlsLeft);
+    paginationControls.appendChild(controlsRight);
+
+    // Append pagination controls to header
+    infoHeader.appendChild(paginationControls);
+
+    // Add edit button to header if user can edit
+    if (canEdit) {
+        const editButton = document.createElement('button');
+        editButton.id = 'edit-button';
+        editButton.className = 'edit-event-button';
+        editButton.textContent = 'Edit Event';
+    
+        editButton.addEventListener('click', async function () {
+            openEditPopup(event);
+        });
+        
+        infoHeader.appendChild(editButton);
+    }
+
+    // Add header to page
+    contentArea.appendChild(infoHeader);
 
     // Helper function to filter emotes
     function filterEmotes(emotes, searchTerm) {
@@ -232,7 +453,7 @@ async function createVotingInterface(event, isExpired = false) {
         const userVote = userVotes ? userVotes[emote.id] : null;
         
         const keepButton = document.createElement('button');
-        keepButton.className = 'vote-button vote-keep';
+        keepButton.className = 'vote-button vote-keep glass-card';
         keepButton.textContent = `yes (${voteCounts[emote.id]?.keep || 0})`;
         if (userVote === 'keep') {
             keepButton.classList.add('active');
@@ -244,7 +465,7 @@ async function createVotingInterface(event, isExpired = false) {
         }
 
         const neutralButton = document.createElement('button');
-        neutralButton.className = 'vote-button vote-neutral';
+        neutralButton.className = 'vote-button vote-neutral glass-card';
         neutralButton.textContent = `idc (${voteCounts[emote.id]?.neutral || 0})`;
         if (userVote === 'neutral') {
             neutralButton.classList.add('active');
@@ -256,7 +477,7 @@ async function createVotingInterface(event, isExpired = false) {
         }
 
         const removeButton = document.createElement('button');
-        removeButton.className = 'vote-button vote-remove';
+        removeButton.className = 'vote-button vote-remove glass-card';
         removeButton.textContent = `no (${voteCounts[emote.id]?.remove || 0})`;
         if (userVote === 'remove') {
             removeButton.classList.add('active');
@@ -401,11 +622,19 @@ async function createVotingInterface(event, isExpired = false) {
             }
         });
 
-        emoteDiv.appendChild(emoteName);
-        emoteDiv.appendChild(emoteImg);
-        emoteDiv.appendChild(keepButton);
-        emoteDiv.appendChild(neutralButton);
-        emoteDiv.appendChild(removeButton);
+        const voteButtonsDiv = document.createElement('div');
+        voteButtonsDiv.className = 'vote-buttons-div'
+        voteButtonsDiv.appendChild(keepButton);
+        voteButtonsDiv.appendChild(neutralButton);
+        voteButtonsDiv.appendChild(removeButton);
+
+        const voteEmoteDiv = document.createElement('div');
+        voteEmoteDiv.className = 'vote-emote-div glass-card';
+        voteEmoteDiv.appendChild(emoteName);
+        voteEmoteDiv.appendChild(emoteImg);
+
+        emoteDiv.appendChild(voteEmoteDiv);
+        emoteDiv.appendChild(voteButtonsDiv);
         
         return emoteDiv;
     }
@@ -439,74 +668,39 @@ async function createVotingInterface(event, isExpired = false) {
         prevButton.disabled = currentPage === 1;
         nextButton.disabled = currentPage >= totalPages || totalPages === 0;
     }
+    
+    // Debounce helper function
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 
-    const emoteGrid = document.createElement('div');
-    emoteGrid.className = 'emote-voting-grid';
-    
-    // Create pagination controls container
-    const paginationControls = document.createElement('div');
-    paginationControls.className = 'emote-pagination-controls';
-    
-    // Search input
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.placeholder = 'Search emotes by name...';
-    searchInput.className = 'emote-search-input';
-    
-    // Sort select
-    const sortSelect = document.createElement('select');
-    sortSelect.className = 'emote-sort-select';
-    sortSelect.innerHTML = `
-        <option value="default">Default Order</option>
-        <option value="name-asc">Name (A-Z)</option>
-        <option value="name-desc">Name (Z-A)</option>
-        <option value="total-votes-desc">Total Votes (High to Low)</option>
-        <option value="total-votes-asc">Total Votes (Low to High)</option>
-        <option value="positive-votes-desc">Positive Votes (High to Low)</option>
-        <option value="positive-votes-asc">Positive Votes (Low to High)</option>
-        <option value="negative-votes-desc">Negative Votes (High to Low)</option>
-        <option value="negative-votes-asc">Negative Votes (Low to High)</option>
-        <option value="ratio-desc">Keep/Remove Ratio (High to Low)</option>
-        <option value="ratio-asc">Keep/Remove Ratio (Low to High)</option>
-    `;
-    
-    // Page info
-    const pageInfo = document.createElement('span');
-    pageInfo.className = 'emote-page-info';
-    
-    // Navigation buttons
-    const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous';
-    prevButton.className = 'emote-page-button';
-    
-    const nextButton = document.createElement('button');
-    nextButton.textContent = 'Next';
-    nextButton.className = 'emote-page-button';
-    
-    // Assemble controls
-    const controlsLeft = document.createElement('div');
-    controlsLeft.style.display = 'flex';
-    controlsLeft.style.gap = '10px';
-    controlsLeft.style.alignItems = 'center';
-    controlsLeft.appendChild(searchInput);
-    controlsLeft.appendChild(sortSelect);
-    
-    const controlsRight = document.createElement('div');
-    controlsRight.style.display = 'flex';
-    controlsRight.style.gap = '10px';
-    controlsRight.style.alignItems = 'center';
-    controlsRight.appendChild(prevButton);
-    controlsRight.appendChild(pageInfo);
-    controlsRight.appendChild(nextButton);
-    
-    paginationControls.appendChild(controlsLeft);
-    paginationControls.appendChild(controlsRight);
-    
     // Event listeners
-    searchInput.addEventListener('input', function() {
-        searchTerm = this.value;
+    let searchDebounceCount = 0;
+    let searchExecuteCount = 0;
+    
+    // Debounced search function for emotes
+    const debouncedEmoteSearch = debounce(function() {
+        searchExecuteCount++;
+        console.log(`[DEBOUNCE] Search executed (count: ${searchExecuteCount}). Current value: "${searchInput.value}"`);
+        searchTerm = searchInput.value;
         currentPage = 1; // Reset to first page on search
         renderEmotePage();
+    }, 300);
+    
+    searchInput.addEventListener('input', function() {
+        searchDebounceCount++;
+        if (searchDebounceCount % 5 === 0) {
+            console.log(`[DEBOUNCE] Input event fired (total: ${searchDebounceCount}, executed: ${searchExecuteCount})`);
+        }
+        debouncedEmoteSearch();
     });
     
     sortSelect.addEventListener('change', function() {
@@ -533,67 +727,39 @@ async function createVotingInterface(event, isExpired = false) {
     // Add expired message if needed
     if (isExpired) {
         const expiredMessage = document.createElement('div');
-        expiredMessage.style.cssText = 'background: #ffebee; color: #c62828; padding: 10px; margin-bottom: 20px; border-radius: 4px; text-align: center; font-weight: bold;';
+        expiredMessage.className = 'expired-message';
         expiredMessage.textContent = ' This voting event has expired - Results are view-only';
         emoteGrid.appendChild(expiredMessage);
     }
     
     // Only create neutral votes for active events
+    // Optimize: Only create votes for emotes the user hasn't voted on yet
     if (!isExpired) {
-        createNeutralVotesInBackground(event.id, emotes);
-
-        if (canEdit) {
-            const editButton = document.createElement('button');
-            editButton.id = 'edit-button';
-            editButton.textContent = 'Edit Event';
-            editButton.style.cssText = 'margin-bottom: 20px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;';
-        
-            editButton.addEventListener('click', async function () {
-                openEditPopup(event);
-            });
-            
-            emoteGrid.appendChild(editButton);
-        }
+        createNeutralVotesInBackground(event.id, emotes, userVotes);
     }
     
     // Initial render
     renderEmotePage();
     
-    // Add pagination controls and grid to content area
-    contentArea.appendChild(paginationControls);
-    contentArea.appendChild(emoteGrid);
+    // Create emote layout wrapper
+    const emoteLayout = document.createElement('div');
+    emoteLayout.className = 'emote-layout';
+    
+    // Append only grid to layout wrapper (pagination controls are now in header)
+    emoteLayout.appendChild(emoteGrid);
+    
+    // Append layout wrapper to content area
+    contentArea.appendChild(emoteLayout);
 }
 
 async function openEditPopup(event) {
     // Create the backdrop (darkens the background)
     const backdrop = document.createElement('div');
-    backdrop.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 1000;
-    `;
+    backdrop.className = 'popup-backdrop';
 
     // Create the popup container (centered box)
     const popup = document.createElement('div');
-    popup.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: white;
-        padding: 30px;
-        border-radius: 8px;
-        z-index: 1001;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        max-width: 500px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-    `;
+    popup.className = 'popup-container';
 
     // Close popup function
     const closePopup = () => {
@@ -609,31 +775,16 @@ async function openEditPopup(event) {
     
     // Header with close button
     const header = document.createElement('div');
-    header.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    `;
+    header.className = 'popup-header';
     
     const headerTitle = document.createElement('h2');
+    headerTitle.className = 'popup-header-title';
     headerTitle.textContent = 'Edit Voting Event';
-    headerTitle.style.margin = '0';
     
     const closeBtn = document.createElement('button');
+    closeBtn.className = 'popup-close-button';
     closeBtn.textContent = 'x';
     closeBtn.type = 'button';
-    closeBtn.style.cssText = `
-        background: none;
-        border: none;
-        font-size: 30px;
-        cursor: pointer;
-        color: #666;
-        padding: 0;
-        width: 30px;
-        height: 30px;
-        line-height: 1;
-    `;
     closeBtn.addEventListener('click', closePopup);
     
     header.appendChild(headerTitle);
@@ -641,25 +792,19 @@ async function openEditPopup(event) {
 
     // Title Section
     const titleSection = document.createElement('div');
-    titleSection.className = 'form-section';
-    titleSection.style.marginBottom = '15px';
+    titleSection.className = 'popup-form-section';
     
     const titleLabel = document.createElement('label');
+    titleLabel.className = 'form-label';
     titleLabel.textContent = 'Event Title';
-    titleLabel.style.display = 'block';
-    titleLabel.style.marginBottom = '5px';
-    titleLabel.style.fontWeight = 'bold';
     
     const titleInput = document.createElement('input');
+    titleInput.className = 'form-input';
     titleInput.type = 'text';
     titleInput.value = event.title;  // Pre-fill with current title
-    titleInput.style.cssText = 'width: 100%; padding: 8px; box-sizing: border-box;';
 
     const titleError = document.createElement('div');
-    titleError.className = 'error-message';
-    titleError.style.color = 'red';
-    titleError.style.display = 'none';
-    titleError.style.marginTop = '5px';
+    titleError.className = 'error-message hidden';
 
     titleSection.appendChild(titleLabel);
     titleSection.appendChild(titleInput);
@@ -669,27 +814,24 @@ async function openEditPopup(event) {
     let activeTimeTab = 'duration';  // Default to duration tab
     
     const timeSection = document.createElement('div');
-    timeSection.className = 'form-section';
-    timeSection.style.marginBottom = '15px';
+    timeSection.className = 'popup-form-section';
     
     const timeLabel = document.createElement('label');
+    timeLabel.className = 'form-label';
     timeLabel.textContent = 'Event Duration';
-    timeLabel.style.display = 'block';
-    timeLabel.style.marginBottom = '5px';
-    timeLabel.style.fontWeight = 'bold';
     
     const tabContainer = document.createElement('div');
-    tabContainer.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+    tabContainer.className = 'tab-container';
     
     const durationTab = document.createElement('button');
+    durationTab.className = 'tab-button active';
     durationTab.textContent = 'Duration';
     durationTab.type = 'button';
-    durationTab.style.cssText = 'padding: 8px 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px;';
     
     const endTimeTab = document.createElement('button');
+    endTimeTab.className = 'tab-button inactive';
     endTimeTab.textContent = 'End Time';
     endTimeTab.type = 'button';
-    endTimeTab.style.cssText = 'padding: 8px 16px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 4px;';
 
     tabContainer.appendChild(durationTab);
     tabContainer.appendChild(endTimeTab);
@@ -697,46 +839,42 @@ async function openEditPopup(event) {
     // Duration Content
     const durationContent = document.createElement('div');
     durationContent.className = 'time-tabs';
-    durationContent.style.display = 'block';
 
     const durationError = document.createElement('div');
-    durationError.className = 'error-message';
-    durationError.style.color = 'red';
-    durationError.style.display = 'none';
-    durationError.style.marginTop = '5px';
+    durationError.className = 'error-message hidden';
     
     // Days Input
     const daysLabel = document.createElement('label');
+    daysLabel.className = 'duration-label';
     daysLabel.textContent = 'Days: ';
-    daysLabel.style.marginRight = '5px';
     const durationDays = document.createElement('input');
+    durationDays.className = 'duration-input';
     durationDays.type = 'number';
     durationDays.value = '0';
     durationDays.min = '0';
     durationDays.max = '31';
-    durationDays.style.cssText = 'width: 60px; margin-right: 15px; padding: 5px;';
     
     // Hours Input
     const hoursLabel = document.createElement('label');
+    hoursLabel.className = 'duration-label';
     hoursLabel.textContent = 'Hours: ';
-    hoursLabel.style.marginRight = '5px';
     const durationHours = document.createElement('input');
+    durationHours.className = 'duration-input';
     durationHours.type = 'number';
     durationHours.value = '0';
     durationHours.min = '0';
     durationHours.max = '23';
-    durationHours.style.cssText = 'width: 60px; margin-right: 15px; padding: 5px;';
     
     // Minutes Input
     const minutesLabel = document.createElement('label');
+    minutesLabel.className = 'duration-label';
     minutesLabel.textContent = 'Minutes: ';
-    minutesLabel.style.marginRight = '5px';
     const durationMinutes = document.createElement('input');
+    durationMinutes.className = 'duration-input';
     durationMinutes.type = 'number';
     durationMinutes.value = '0';
     durationMinutes.min = '0';
     durationMinutes.max = '59';
-    durationMinutes.style.cssText = 'width: 60px; padding: 5px;';
 
     durationContent.appendChild(daysLabel);
     durationContent.appendChild(durationDays);
@@ -748,19 +886,15 @@ async function openEditPopup(event) {
 
     // End Time Content
     const endTimeContent = document.createElement('div');
-    endTimeContent.className = 'time-tabs';
-    endTimeContent.style.display = 'none';
+    endTimeContent.className = 'time-tabs hidden';
     
     const endTimeInput = document.createElement('input');
+    endTimeInput.className = 'form-input';
     endTimeInput.type = 'datetime-local';
     endTimeInput.min = new Date().toISOString().slice(0, 16);
-    endTimeInput.style.cssText = 'width: 100%; padding: 8px; box-sizing: border-box;';
 
     const endTimeError = document.createElement('div');
-    endTimeError.className = 'error-message';
-    endTimeError.style.color = 'red';
-    endTimeError.style.display = 'none';
-    endTimeError.style.marginTop = '5px';
+    endTimeError.className = 'error-message hidden';
     
     endTimeContent.appendChild(endTimeInput);
     endTimeContent.appendChild(endTimeError);
@@ -772,20 +906,24 @@ async function openEditPopup(event) {
 
     // Tab switching logic
     durationTab.addEventListener('click', function() {
-        durationContent.style.display = 'block';
-        endTimeContent.style.display = 'none';
+        durationContent.classList.remove('hidden');
+        endTimeContent.classList.add('hidden');
+        durationTab.classList.add('active');
+        durationTab.classList.remove('inactive');
+        endTimeTab.classList.add('inactive');
+        endTimeTab.classList.remove('active');
         activeTimeTab = 'duration';
-        durationTab.style.background = '#007bff';
-        endTimeTab.style.background = '#6c757d';
         validateDuration();
     });
     
     endTimeTab.addEventListener('click', function() {
-        durationContent.style.display = 'none';
-        endTimeContent.style.display = 'block';
+        durationContent.classList.add('hidden');
+        endTimeContent.classList.remove('hidden');
+        durationTab.classList.add('inactive');
+        durationTab.classList.remove('active');
+        endTimeTab.classList.add('active');
+        endTimeTab.classList.remove('inactive');
         activeTimeTab = 'endTime';
-        durationTab.style.background = '#6c757d';
-        endTimeTab.style.background = '#007bff';
         validateEndTime();
     });
 
@@ -875,18 +1013,18 @@ async function openEditPopup(event) {
 
     // Buttons Section
     const buttonSection = document.createElement('div');
-    buttonSection.style.cssText = 'display: flex; gap: 10px; margin-top: 20px;';
+    buttonSection.className = 'popup-button-section';
     
     const saveButton = document.createElement('button');
+    saveButton.className = 'popup-button save-button';
     saveButton.textContent = 'Save Changes';
     saveButton.type = 'button';
-    saveButton.style.cssText = 'flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;';
     saveButton.disabled = true;
     
     const endNowButton = document.createElement('button');
+    endNowButton.className = 'popup-button end-now-button';
     endNowButton.textContent = 'End Now';
     endNowButton.type = 'button';
-    endNowButton.style.cssText = 'flex: 1; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;';
 
     buttonSection.appendChild(saveButton);
     buttonSection.appendChild(endNowButton);
@@ -894,11 +1032,11 @@ async function openEditPopup(event) {
     // Validation functions
     function validateTitle() {
         if (titleInput.value.trim() === '') {
-            titleError.style.display = 'block';
+            titleError.classList.remove('hidden');
             titleError.textContent = 'Event title cannot be empty';
             return false;
         }
-        titleError.style.display = 'none';
+        titleError.classList.add('hidden');
         return true;
     }
 
@@ -911,13 +1049,13 @@ async function openEditPopup(event) {
         
         // If duration is 0, that's OK - user might just be changing title
         if (totalMinutes === 0) {
-            durationError.style.display = 'none';
+            durationError.classList.add('hidden');
             return true;  // Allow 0 duration (won't be sent to backend)
         }
         
         // Must be at least 5 minutes from now
         if (totalMinutes < 5) {
-            durationError.style.display = 'block';
+            durationError.classList.remove('hidden');
             durationError.textContent = 'Duration must be at least 5 minutes from now';
             return false;
         }
@@ -928,12 +1066,12 @@ async function openEditPopup(event) {
         const maxEndTime = new Date(createdAt.getTime() + 31 * 24 * 60 * 60 * 1000); // 31 days from creation
         
         if (proposedEndTime > maxEndTime) {
-            durationError.style.display = 'block';
+            durationError.classList.remove('hidden');
             durationError.textContent = 'End time cannot be more than 31 days from original creation';
             return false;
         }
         
-        durationError.style.display = 'none';
+        durationError.classList.add('hidden');
         return true;
     }
 
@@ -942,7 +1080,7 @@ async function openEditPopup(event) {
     
         // If no value entered, that's OK - user might just be changing title
         if (!endTimeInput.value) {
-            endTimeError.style.display = 'none';
+            endTimeError.classList.add('hidden');
             return true;
         }
     
@@ -951,14 +1089,14 @@ async function openEditPopup(event) {
         const diffMinutes = (selectedDate - now) / (1000 * 60);
     
         if (isNaN(selectedDate.getTime())) {
-            endTimeError.style.display = 'block';
+            endTimeError.classList.remove('hidden');
             endTimeError.textContent = 'Please select a valid date and time';
             return false;
         }
         
         // Must be at least 5 minutes from now
         if (diffMinutes < 5) {
-            endTimeError.style.display = 'block';
+            endTimeError.classList.remove('hidden');
             endTimeError.textContent = 'End time must be at least 5 minutes from now';
             return false;
         }
@@ -968,12 +1106,12 @@ async function openEditPopup(event) {
         const maxEndTime = new Date(createdAt.getTime() + 31 * 24 * 60 * 60 * 1000);
         
         if (selectedDate > maxEndTime) {
-            endTimeError.style.display = 'block';
+            endTimeError.classList.remove('hidden');
             endTimeError.textContent = 'End time cannot be more than 31 days from original creation';
             return false;
         }
         
-        endTimeError.style.display = 'none';
+        endTimeError.classList.add('hidden');
         return true;
     }
 
@@ -1117,7 +1255,7 @@ async function openEditPopup(event) {
 
 function createEventButton(event, isActive) {
     const eventButton = document.createElement('button');
-    eventButton.classList.add('event-button');
+    eventButton.className = 'event-button glass-card';
     
     // ADD: Add permission level as CSS class
     if (event.permission_level) {
@@ -1128,34 +1266,62 @@ function createEventButton(event, isActive) {
     
     // Add visual styling for expired events
     if (!isActive) {
-        eventButton.style.opacity = '0.7';
-        eventButton.style.backgroundColor = '#f8f9fa';
+        eventButton.classList.add('expired');
     }
     
+    const voteEventId = document.createElement('h4');
+    voteEventId.classList.add('vote-event-id');
+    voteEventId.textContent = `#${event.id}`
+
+    const timeInfo = document.createElement('p');
+    timeInfo.classList.add('time-info');
+    if (isActive) {
+        // Check if we have end_time for live countdown
+        if (event.end_time) {
+            // Set initial display
+            const endTime = new Date(event.end_time);
+            const now = new Date();
+            const remaining = endTime - now;
+            if (remaining > 0) {
+                timeInfo.textContent = formatTimeRemaining(remaining);
+                // Start countdown timer
+                const timerId = createCountdownTimer(timeInfo, event.end_time);
+                if (timerId) {
+                    // Store in map for cleanup
+                    activeTimers.set(timeInfo, timerId);
+                }
+            } else {
+                timeInfo.textContent = "Ended";
+                timeInfo.classList.add('expired');
+            }
+        } else {
+            // Fallback to static time_remaining if end_time not available
+            timeInfo.textContent = `${event.time_remaining}`;
+        }
+    } else {
+        timeInfo.textContent = `${event.time_ended}`;
+        timeInfo.classList.add('expired');
+    }
+
+    const colorBlock = document.createElement('div');
+    colorBlock.className = 'color-block';
+
+    // Add permission class to colorBlock (same pattern as eventButton)
+    if (event.permission_level) {
+        colorBlock.classList.add(`permission-${event.permission_level}`);
+    }
+
+    colorBlock.appendChild(voteEventId);
+    colorBlock.appendChild(timeInfo);
+
     const usernameAndTitle = document.createElement('h3');
     usernameAndTitle.classList.add('username-and-title');
-    usernameAndTitle.textContent = `${event.creator_username}'s vote for '${event.emote_set_name}'`;
+    usernameAndTitle.textContent = `${event.owner_username || event.creator_username}'s vote for '${event.emote_set_name}'`;
 
     const voteTitle = document.createElement('h2');
     voteTitle.classList.add('vote-title');
     voteTitle.textContent = `"${event.title}"`;
-    voteTitle.style.fontWeight = 'bold';
-    voteTitle.style.color = '#333';
 
-    const voteEventId = document.createElement('h4');
-    voteEventId.classList.add('vote-event-id');
-    voteEventId.textContent = `#${event.id}`
-    
-    const timeInfo = document.createElement('p');
-    timeInfo.classList.add('time-info');
-    
-    if (isActive) {
-        timeInfo.textContent = `${event.time_remaining}`;
-    } else {
-        timeInfo.textContent = `${event.time_ended}`;
-        timeInfo.style.fontStyle = 'italic';
-    }
-    
     const totalVotes = document.createElement('p');
     totalVotes.classList.add('total-votes');
     totalVotes.textContent = `${event.total_votes} votes counted`;
@@ -1172,128 +1338,263 @@ function createEventButton(event, isActive) {
         });
     }
     
-    eventButton.appendChild(voteTitle);
-    eventButton.appendChild(voteEventId);
-    eventButton.appendChild(usernameAndTitle);
-    eventButton.appendChild(timeInfo);
-    eventButton.appendChild(totalVotes);
+    // Create a container for text content
+    const textContent = document.createElement('div');
+    textContent.className = 'event-text-content';
+
+    // Add text elements to the container
+    textContent.appendChild(voteTitle);
+    textContent.appendChild(usernameAndTitle);
+    textContent.appendChild(totalVotes);
+
+    // Append to event button
+    eventButton.appendChild(colorBlock);
+    eventButton.appendChild(textContent);
     
     return eventButton;
 }
 
 export function displayVotingEvents(activeEvents, expiredEvents) {
     const contentArea = document.querySelector('#content-area');
+    // Cleanup timers before clearing content
+    cleanupTimers();
     contentArea.innerHTML = ''; 
 
     // Create filter and sort controls container
     const filterAndSortSection = document.createElement('div');
     filterAndSortSection.id = 'filter-sort-section';
-    filterAndSortSection.style.cssText = 'margin-bottom: 1.5rem; padding: 1rem; background: #f5f5f5; border-radius: 8px;';
+    filterAndSortSection.className = 'filter-sort-section glass-card';
 
-    filterAndSortSection.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-            <div>
-                <label for="status-filter" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Status:</label>
-                <select id="status-filter" style="width: 100%; padding: 0.5rem;">
-                    <option value="all">All Events</option>
-                    <option value="active" selected>Active Only</option>
-                    <option value="expired">Expired Only</option>
-                </select>
-            </div>
-            
-            <div>
-                <label for="permission-filter" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Permission:</label>
-                <select id="permission-filter" style="width: 100%; padding: 0.5rem;">
-                    <option value="all">All Types</option>
-                    <option value="public">Public</option>
-                    <option value="followers">Followers Only</option>
-                    <option value="subscribers">Subscribers Only</option>
-                    <option value="specific">Specific Users</option>
-                </select>
-            </div>
-            
-            <div>
-                <label for="creator-filter" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Creator:</label>
-                <select id="creator-filter" style="width: 100%; padding: 0.5rem;">
-                    <option value="all">All Creators</option>
-                    <option value="my-events">My Events</option>
-                    <option value="moderate">Events I Moderate</option>
-                    <option value="following">Channels I Follow</option>
-                </select>
-            </div>
-            
-            <div>
-                <label for="sort-select" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Sort By:</label>
-                <select id="sort-select" style="width: 100%; padding: 0.5rem;">
-                    <option value="ending-soon" selected>Ending Soon</option>
-                    <option value="ending-later">Ending Later</option>
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="most-votes">Most Votes</option>
-                    <option value="least-votes">Least Votes</option>
-                    <option value="a-z">A-Z</option>
-                    <option value="z-a">Z-A</option>
-                </select>
-            </div>
-        </div>
+    const filterGrid = document.createElement('div');
+    filterGrid.className = 'filter-grid';
+    
+    // Permission filter - Radio buttons
+    const permissionFilterDiv = document.createElement('div');
+    const permissionLabel = document.createElement('label');
+    permissionLabel.className = 'filter-label';
+    permissionLabel.textContent = 'Permission:';
+    permissionFilterDiv.appendChild(permissionLabel);
+    
+    const permissionRadioGroup = document.createElement('div');
+    permissionRadioGroup.className = 'radio-group';
+    
+    const permissionOptions = [
+        { value: '', label: 'All Types' },
+        { value: 'all', label: 'All Users' },
+        { value: 'followers', label: 'Followers Only' },
+        { value: 'subscribers', label: 'Subscribers Only' },
+        { value: 'specific', label: 'Specific Users' }
+    ];
+    
+    permissionOptions.forEach((option, index) => {
+        const radioDiv = document.createElement('div');
+        radioDiv.className = 'radio-option';
         
-        <div>
-            <label for="search-input" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Search:</label>
-            <input 
-                type="text" 
-                id="search-input" 
-                placeholder="Search by title, creator, or emote set..." 
-                style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;"
-            />
-        </div>
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'permission-filter';
+        radio.id = `permission-${option.value || 'all-types'}`;
+        radio.value = option.value;
+        if (index === 0) radio.checked = true; // Default to "All Types"
+        
+        const radioLabel = document.createElement('label');
+        radioLabel.setAttribute('for', radio.id);
+        radioLabel.textContent = option.label;
+        
+        radioDiv.appendChild(radio);
+        radioDiv.appendChild(radioLabel);
+        permissionRadioGroup.appendChild(radioDiv);
+    });
+    
+    permissionFilterDiv.appendChild(permissionRadioGroup);
+    
+    // Creator filter - Radio buttons
+    const creatorFilterDiv = document.createElement('div');
+    const creatorLabel = document.createElement('label');
+    creatorLabel.className = 'filter-label';
+    creatorLabel.textContent = 'Creator:';
+    creatorFilterDiv.appendChild(creatorLabel);
+    
+    const creatorRadioGroup = document.createElement('div');
+    creatorRadioGroup.className = 'radio-group';
+    
+    const creatorOptions = [
+        { value: 'all', label: 'All Creators' },
+        { value: 'my-events', label: 'My Events' },
+        { value: 'moderate', label: 'Events I Moderate' },
+        { value: 'following', label: 'Channels I Follow' }
+    ];
+    
+    creatorOptions.forEach((option, index) => {
+        const radioDiv = document.createElement('div');
+        radioDiv.className = 'radio-option';
+        
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'creator-filter';
+        radio.id = `creator-${option.value}`;
+        radio.value = option.value;
+        if (index === 0) radio.checked = true; // Default to "All Creators"
+        
+        const radioLabel = document.createElement('label');
+        radioLabel.setAttribute('for', radio.id);
+        radioLabel.textContent = option.label;
+        
+        radioDiv.appendChild(radio);
+        radioDiv.appendChild(radioLabel);
+        creatorRadioGroup.appendChild(radioDiv);
+    });
+    
+    creatorFilterDiv.appendChild(creatorRadioGroup);
+    
+    // Sort select
+    const sortFilterDiv = document.createElement('div');
+    const sortLabel = document.createElement('label');
+    sortLabel.setAttribute('for', 'sort-select');
+    sortLabel.className = 'filter-label';
+    sortLabel.textContent = 'Sort By:';
+    const sortSelect = document.createElement('select');
+    sortSelect.id = 'sort-select';
+    sortSelect.className = 'filter-select';
+    sortSelect.innerHTML = `
+        <option value="ending-soon" selected>Ending Soon</option>
+        <option value="ending-later">Ending Later</option>
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="most-votes">Most Votes</option>
+        <option value="least-votes">Least Votes</option>
+        <option value="a-z">A-Z</option>
+        <option value="z-a">Z-A</option>
     `;
+    sortFilterDiv.appendChild(sortLabel);
+    sortFilterDiv.appendChild(sortSelect);
+    
+    filterGrid.appendChild(permissionFilterDiv);
+    filterGrid.appendChild(creatorFilterDiv);
+    filterGrid.appendChild(sortFilterDiv);
+    
+    // Search input (will be moved to status button group)
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.id = 'search-input';
+    searchInput.className = 'filter-search-input';
+    searchInput.placeholder = 'Search by title, creator, or emote set...';
+    
+    filterAndSortSection.appendChild(filterGrid);
+    // Search will be moved to status button group
 
-    contentArea.appendChild(filterAndSortSection);
-    // Get references to all filter controls
-    const statusFilter = document.getElementById('status-filter');
-    const permissionFilter = document.getElementById('permission-filter');
-    const creatorFilter = document.getElementById('creator-filter');
-    const sortSelect = document.getElementById('sort-select');
-    const searchInput = document.getElementById('search-input');
+    // Create events layout wrapper
+    const eventsLayout = document.createElement('div');
+    eventsLayout.className = 'events-layout';
+    
+    // Append filter section to layout wrapper
+    eventsLayout.appendChild(filterAndSortSection);
+    
+    // Get references to all filter controls (using the elements we just created)
+    // Status filter will be created as buttons later
+    let currentStatus = 'active';
+    const permissionRadios = permissionRadioGroup.querySelectorAll('input[type="radio"]');
+    const creatorRadios = creatorRadioGroup.querySelectorAll('input[type="radio"]');
+    // sortSelect and searchInput are already defined above
 
     // Store current user info for filtering
     let currentUser = null;
     let followedChannels = new Set();
+    let followedChannelsCacheTimestamp = null;
+    const FOLLOWED_CHANNELS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
-    // Fetch current user info
-    fetch('/auth/me', { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => {
-            if (data.authenticated) {
-                currentUser = data.user;
-            }
-        });
+    // Fetch current user info (using cache)
+    getCachedUser().then(data => {
+        if (data.authenticated) {
+            currentUser = data.user;
+        }
+    });
+
+    // Cache for parsed event data to avoid redundant JSON.parse calls
+    const eventDataCache = new WeakMap();
+    let cacheHits = 0;
+    let cacheMisses = 0;
+    
+    // Helper function to get cached or parse event data
+    function getCachedEventData(button) {
+        let eventData = eventDataCache.get(button);
+        if (!eventData) {
+            cacheMisses++;
+            eventData = JSON.parse(button.dataset.eventData);
+            eventDataCache.set(button, eventData);
+        } else {
+            cacheHits++;
+        }
+        return eventData;
+    }
+
+    // Debounce helper function for event list search
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    
+    // Debounce counters for event list search
+    let eventSearchDebounceCount = 0;
+    let eventSearchExecuteCount = 0;
 
     // Main filter and sort function
     async function applyFiltersAndSort() {
+        // Reset cache stats at the start of each filter/sort operation
+        const startCacheHits = cacheHits;
+        const startCacheMisses = cacheMisses;
+        const startTime = performance.now();
+        
         const allButtons = document.querySelectorAll('.event-button');
-        const statusValue = statusFilter.value;
-        const permissionValue = permissionFilter.value;
-        const creatorValue = creatorFilter.value;
+        const statusValue = currentStatus;
+        const permissionValue = permissionRadioGroup.querySelector('input[type="radio"]:checked')?.value || '';
+        const creatorValue = creatorRadioGroup.querySelector('input[type="radio"]:checked')?.value || 'all';
         const sortValue = sortSelect.value;
         const searchValue = searchInput.value.toLowerCase().trim();
         
         // Handle "Channels I Follow" filter (requires API call)
-        if (creatorValue === 'following' && followedChannels.size === 0) {
-            // Show loading state
-            creatorFilter.disabled = true;
-            try {
-                const response = await fetch('/user/following', { credentials: 'include' });
-                const data = await response.json();
-                followedChannels = new Set(data.channel_ids || []);
-            } catch (error) {
-                console.error('Failed to fetch followed channels:', error);
-                alert('Failed to load followed channels. Please try again.');
-                creatorFilter.value = 'all';
-                creatorFilter.disabled = false;
-                return;
+        // OPTIMIZATION: Cache followed channels for 10 minutes
+        if (creatorValue === 'following') {
+            const now = Date.now();
+            const cacheValid = followedChannelsCacheTimestamp && 
+                             (now - followedChannelsCacheTimestamp) < FOLLOWED_CHANNELS_CACHE_DURATION;
+            
+            if (followedChannels.size === 0 || !cacheValid) {
+                // Show loading state
+                creatorRadios.forEach(radio => radio.disabled = true);
+                try {
+                    const fetchStartTime = performance.now();
+                    const response = await fetch('/user/following', { credentials: 'include' });
+                    const data = await response.json();
+                    followedChannels = new Set(data.channel_ids || []);
+                    followedChannelsCacheTimestamp = now;
+                    const fetchEndTime = performance.now();
+                    const fetchDuration = fetchEndTime - fetchStartTime;
+                    
+                    if (cacheValid) {
+                        console.log(`[FOLLOWED CHANNELS CACHE] Cache expired, refreshed in ${fetchDuration.toFixed(2)}ms`);
+                    } else {
+                        console.log(`[FOLLOWED CHANNELS CACHE] Fetched ${followedChannels.size} followed channels in ${fetchDuration.toFixed(2)}ms (cached for 10 minutes)`);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch followed channels:', error);
+                    alert('Failed to load followed channels. Please try again.');
+                    const allCreatorRadio = creatorRadioGroup.querySelector('input[value="all"]');
+                    if (allCreatorRadio) allCreatorRadio.checked = true;
+                    creatorRadios.forEach(radio => radio.disabled = false);
+                    return;
+                }
+                creatorRadios.forEach(radio => radio.disabled = false);
+            } else {
+                console.log(`[FOLLOWED CHANNELS CACHE] Using cached followed channels (${followedChannels.size} channels)`);
             }
-            creatorFilter.disabled = false;
         }
         
         // Convert NodeList to Array for filtering and sorting
@@ -1301,7 +1602,7 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         
         // Apply filters
         visibleButtons = visibleButtons.filter(button => {
-            const eventData = JSON.parse(button.dataset.eventData);
+            const eventData = getCachedEventData(button);
         
             
             // Status filter
@@ -1309,7 +1610,7 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
             if (statusValue === 'expired' && eventData.is_active) return false;
             
             // Permission filter
-            if (permissionValue !== 'all' && eventData.permission_level !== permissionValue) return false;
+            if (permissionValue && permissionValue !== '' && eventData.permission_level !== permissionValue) return false;
             
             // Creator filter
             if (creatorValue === 'my-events' && currentUser && eventData.creator_username !== currentUser.display_name) return false;
@@ -1342,8 +1643,8 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         
         // Apply sorting
         visibleButtons.sort((a, b) => {
-            const eventA = JSON.parse(a.dataset.eventData);
-            const eventB = JSON.parse(b.dataset.eventData);
+            const eventA = getCachedEventData(a);
+            const eventB = getCachedEventData(b);
             
             switch (sortValue) {
                 case 'ending-soon':
@@ -1368,15 +1669,15 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         });
         
         // Hide all buttons first
-        allButtons.forEach(button => button.style.display = 'none');
+        allButtons.forEach(button => button.classList.add('hidden'));
         
         // Show and reorder visible buttons
         const activeSection = document.querySelector('.active-events-list');
         const expiredSection = document.querySelector('.expired-events-list');
         
         visibleButtons.forEach(button => {
-            button.style.display = 'block';
-            const eventData = JSON.parse(button.dataset.eventData);
+            button.classList.remove('hidden');
+            const eventData = getCachedEventData(button);
             
             // Append to correct section to maintain order
             if (eventData.is_active && activeSection) {
@@ -1386,25 +1687,25 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
             }
         });
         
-        // Hide section titles if no buttons are visible in that section
-        const activeTitle = document.querySelector('.active-section-title');
-        const expiredTitle = document.querySelector('.expired-section-title');
-        
-        const activeVisible = visibleButtons.some(btn => JSON.parse(btn.dataset.eventData).is_active);
-        const expiredVisible = visibleButtons.some(btn => !JSON.parse(btn.dataset.eventData).is_active);
-        
-        if (activeTitle) {
-            activeTitle.style.display = activeVisible ? 'block' : 'none';
+        // Hide sections if no buttons are visible in that section
+        const activeSectionContainer = document.querySelector('.active-events-section');
+        const expiredSectionContainer = document.querySelector('.expired-events-section');
+
+        const activeVisible = visibleButtons.some(btn => getCachedEventData(btn).is_active);
+        const expiredVisible = visibleButtons.some(btn => !getCachedEventData(btn).is_active);
+
+        if (activeSectionContainer) {
+            activeSectionContainer.classList.toggle('hidden', !activeVisible);
         }
-        if (expiredTitle) {
-            expiredTitle.style.display = expiredVisible ? 'block' : 'none';
+        if (expiredSectionContainer) {
+            expiredSectionContainer.classList.toggle('hidden', !expiredVisible);
         }
         
         // Show "no results" message if nothing matches
         if (visibleButtons.length === 0) {
             const noResults = document.createElement('p');
+            noResults.className = 'no-results-message';
             noResults.textContent = 'No events match your filters.';
-            noResults.style.cssText = 'text-align: center; color: #666; font-style: italic; padding: 2rem;';
             noResults.id = 'no-results-message';
             
             // Remove old message if exists
@@ -1417,14 +1718,43 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
             const oldMessage = document.getElementById('no-results-message');
             if (oldMessage) oldMessage.remove();
         }
+        
+        // Performance debugging
+        const endTime = performance.now();
+        const operationTime = endTime - startTime;
+        const hitsThisOperation = cacheHits - startCacheHits;
+        const missesThisOperation = cacheMisses - startCacheMisses;
+        const totalOperations = hitsThisOperation + missesThisOperation;
+        const cacheHitRate = totalOperations > 0 ? ((hitsThisOperation / totalOperations) * 100).toFixed(1) : 0;
+        
+        console.log(`[CACHE PERF] Filter/Sort completed in ${operationTime.toFixed(2)}ms`);
+        console.log(`[CACHE PERF] Cache stats - Hits: ${hitsThisOperation}, Misses: ${missesThisOperation}, Hit rate: ${cacheHitRate}%`);
+        console.log(`[CACHE PERF] Total buttons: ${allButtons.length}, Visible buttons: ${visibleButtons.length}`);
     }
 
     // Attach event listeners
-    statusFilter.addEventListener('change', applyFiltersAndSort);
-    permissionFilter.addEventListener('change', applyFiltersAndSort);
-    creatorFilter.addEventListener('change', applyFiltersAndSort);
+    permissionRadios.forEach(radio => {
+        radio.addEventListener('change', applyFiltersAndSort);
+    });
+    creatorRadios.forEach(radio => {
+        radio.addEventListener('change', applyFiltersAndSort);
+    });
     sortSelect.addEventListener('change', applyFiltersAndSort);
-    searchInput.addEventListener('input', applyFiltersAndSort);
+    
+    // Debounced search with debug logging
+    const debouncedApplyFilters = debounce(function() {
+        eventSearchExecuteCount++;
+        console.log(`[EVENT SEARCH DEBOUNCE] Search executed (count: ${eventSearchExecuteCount}). Current value: "${searchInput.value}"`);
+        applyFiltersAndSort();
+    }, 300);
+    
+    searchInput.addEventListener('input', function() {
+        eventSearchDebounceCount++;
+        if (eventSearchDebounceCount % 3 === 0) {
+            console.log(`[EVENT SEARCH DEBOUNCE] Input event fired (total: ${eventSearchDebounceCount}, executed: ${eventSearchExecuteCount})`);
+        }
+        debouncedApplyFilters();
+    });
 
     
 
@@ -1436,22 +1766,69 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
 
 
     if ((!activeEvents || activeEvents.length === 0) && (!expiredEvents || expiredEvents.length === 0)) {
+        cleanupTimers();
+        cleanupTimers();
         contentArea.innerHTML = '<h2>No voting events available</h2>';
         return;
     }
+    // Create status toggle button group
+    const statusButtonGroup = document.createElement('div');
+    statusButtonGroup.className = 'status-toggle-group glass-card';
+
+    const activeButton = document.createElement('button');
+    activeButton.className = 'status-toggle-button active';
+    activeButton.textContent = 'Active';
+    activeButton.dataset.status = 'active';
+
+    const expiredButton = document.createElement('button');
+    expiredButton.className = 'status-toggle-button';
+    expiredButton.textContent = 'Expired';
+    expiredButton.dataset.status = 'expired';
+
+    statusButtonGroup.appendChild(activeButton);
+    statusButtonGroup.appendChild(expiredButton);
+    
+    // Create separate search card
+    const searchCard = document.createElement('div');
+    searchCard.className = 'status-search-card glass-card';
+    searchCard.appendChild(searchInput);
+
+    // Status button listeners
+    activeButton.addEventListener('click', () => {
+        currentStatus = 'active';
+        activeButton.classList.add('active');
+        expiredButton.classList.remove('active');
+        applyFiltersAndSort();
+    });
+
+    expiredButton.addEventListener('click', () => {
+        currentStatus = 'expired';
+        expiredButton.classList.add('active');
+        activeButton.classList.remove('active');
+        applyFiltersAndSort();
+    });
+
     // Create main container for both sections
     const mainContainer = document.createElement('div');
+    mainContainer.className = 'events-main-container';
+    
+    // Create sections wrapper for side-by-side layout
+    const sectionsWrapper = document.createElement('div');
+    sectionsWrapper.className = 'events-sections-wrapper';
+    
+    // Create header container for status buttons and search
+    const headerContainer = document.createElement('div');
+    headerContainer.className = 'events-header-container';
+    headerContainer.appendChild(statusButtonGroup);
+    headerContainer.appendChild(searchCard);
+    
+    // Add header container to main container (replaces section titles)
+    mainContainer.appendChild(headerContainer);
 
     // Active Events Section
     if (activeEvents && activeEvents.length > 0) {
         const activeSection = document.createElement('div');
-        activeSection.style.marginBottom = '2rem';
-        
-        const activeTitle = document.createElement('h2');
-        activeTitle.textContent = 'Active Voting Events';
-        activeTitle.style.color = '#28a745';
-        activeTitle.classList.add('active-section-title'); // ADD THIS
-        activeSection.appendChild(activeTitle);
+        activeSection.className = 'active-events-section';
         
         const activeEventList = document.createElement('div');
         activeEventList.classList.add('active-events-list');
@@ -1462,18 +1839,13 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         });
         
         activeSection.appendChild(activeEventList);
-        mainContainer.appendChild(activeSection);
+        sectionsWrapper.appendChild(activeSection);
     }
 
     // Expired Events Section
     if (expiredEvents && expiredEvents.length > 0) {
         const expiredSection = document.createElement('div');
-        
-        const expiredTitle = document.createElement('h2');
-        expiredTitle.textContent = 'Recent Results';
-        expiredTitle.style.color = '#6c757d';
-        expiredTitle.classList.add('expired-section-title'); // ADD THIS
-        expiredSection.appendChild(expiredTitle);
+        expiredSection.className = 'expired-events-section';
         
         const expiredEventList = document.createElement('div');
         expiredEventList.classList.add('expired-events-list');
@@ -1484,10 +1856,17 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         });
         
         expiredSection.appendChild(expiredEventList);
-        mainContainer.appendChild(expiredSection);
+        sectionsWrapper.appendChild(expiredSection);
     }
+    
+    // Append sections wrapper to main container
+    mainContainer.appendChild(sectionsWrapper);
 
-    contentArea.appendChild(mainContainer);
+    // Append main container to layout wrapper
+    eventsLayout.appendChild(mainContainer);
+    
+    // Append layout wrapper to content area
+    contentArea.appendChild(eventsLayout);
 
     applyFiltersAndSort(); 
 }
@@ -1500,10 +1879,13 @@ export async function displayVotingEventById(eventId) {
         if (data.success) {
             await createVotingInterface(data.event, false); // false = not expired
         } else {
-            contentArea.innerHTML = `<p>Error: ${data.message}</p>`;
+            cleanupTimers();
+        cleanupTimers();
+        contentArea.innerHTML = `<p>Error: ${data.message}</p>`;
         }
     } catch (error) {
         console.error('Error loading voting event:', error);
+        cleanupTimers();
         contentArea.innerHTML = '<p>Error loading voting event</p>';
     }
 }

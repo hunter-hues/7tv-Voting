@@ -6,6 +6,8 @@ from models import User
 import httpx
 import pprint
 import os
+import asyncio
+from datetime import datetime
 
 router = APIRouter()
 
@@ -65,12 +67,17 @@ async def get_emotes_from_set(emote_set_id: str):
 
         }}
     """
-    async with httpx.AsyncClient() as client:
+    timeout = httpx.Timeout(10.0, connect=5.0)  # 10s total, 5s to connect
+    async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post("https://7tv.io/v3/gql", json={"query": query})
-        data = response.json().get("data")
         if response.status_code != 200:
-            raise HTTPException(status_code=500, detail='7TV API error')
-        elif not data or not data.get('emoteSet'):
+            print(f"7TV API Error - Status: {response.status_code}")
+            print(f"Response body: {response.text}")
+            raise HTTPException(status_code=500, detail=f'7TV API error: {response.status_code}')
+            
+        data = response.json().get("data")
+
+        if not data or not data.get('emoteSet'):
             raise HTTPException(status_code=404, detail='emote set not found')
         else:
             emotes = [
@@ -94,13 +101,20 @@ async def get_mod_list(request: Request, db: AsyncSession = Depends(get_database
     if not user:
         return {"success": False, "message": "User not found in database"}
 
-    if user.can_create_votes_for and len(user.can_create_votes_for) <= 0:
+    if not user.can_create_votes_for or len(user.can_create_votes_for) == 0:
         return {"success": True, "message": "User is not a mod anywhere", "mod_channels": []}
 
     BASE_URL = os.getenv("BASE_URL")
-    channels_and_emotes = []
-
-    for mod_for_username in user.can_create_votes_for:
+    
+    # OPTIMIZATION #3: Parallelize mod list fetching
+    parallel_start_time = datetime.now()
+    print(f"[PARALLEL MOD FETCH] Starting to fetch emote sets for {len(user.can_create_votes_for)} mod channels...")
+    
+    # Get all mod usernames (already checked above that it's not empty)
+    mod_usernames = user.can_create_votes_for
+    
+    # Create tasks for parallel fetching
+    async def fetch_channel_emotes(mod_for_username):
         try:
             # Get the user from database
             result = await db.execute(select(User).where(User.twitch_username == mod_for_username))
@@ -108,19 +122,30 @@ async def get_mod_list(request: Request, db: AsyncSession = Depends(get_database
             
             # Skip if not found or no 7TV ID
             if not mod_for_user or not mod_for_user.sevenTV_id or mod_for_user.sevenTV_id.startswith("no_account_"):
-                continue
+                return None
                 
             # Use the existing function!
             emote_sets_data = await get_emote_sets(mod_for_user.sevenTV_id)
             
-            # Add to results
-            channels_and_emotes.append({
+            # Return result
+            return {
                 'channel_username': mod_for_username,
                 'emote_sets': emote_sets_data['emote_sets']
-            })
+            }
         except Exception as e:
             print(f"Error fetching emote sets for {mod_for_username}: {str(e)}")
-            continue
+            return None
+    
+    # Fetch all channels in parallel
+    results = await asyncio.gather(*[fetch_channel_emotes(username) for username in mod_usernames])
+    
+    # Filter out None results (failed or skipped channels)
+    channels_and_emotes = [result for result in results if result is not None]
+    
+    parallel_end_time = datetime.now()
+    parallel_duration = (parallel_end_time - parallel_start_time).total_seconds() * 1000
+    print(f"[PARALLEL MOD FETCH] Completed fetching {len(channels_and_emotes)} channels in {parallel_duration:.2f}ms (parallel)")
+    print(f"[PARALLEL MOD FETCH] Fetched {len(channels_and_emotes)} of {len(mod_usernames)} channels successfully")
     
     return {
         "success": True,

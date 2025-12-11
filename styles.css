@@ -1,103 +1,425 @@
-/* Permission level indicators for voting events */
-.event-button.permission-all {
-    border-left: 4px solid #28a745; /* Green for public */
+/* ============================================
+   CSS VARIABLES
+   ============================================ */
+
+:root {
+    /* Colors */
+    --color-primary: #50AE97;
+    --color-primary-active: #01ADA4; 
+    --color-primary-hover:  #185F6C;
+
+    --color-secondary: #5a7a6a;
+
+    --color-bg: #292e2f;
+    --color-bg-light: #5b6667;
+
+
+    --color-text: #f0f4f6;
+    --color-text-light: #ffffff;
+
+    --color-accent: #6a8a7a;
+    
+    /* Spacing - we'll add more as needed */
+    
+    /* Typography - we'll add more as needed */
+    
+    /* Border radius - we'll add more as needed */
 }
 
-.event-button.permission-followers {
-    border-left: 4px solid #007bff; /* Blue for followers */
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.hidden {
+    display: none !important;
 }
 
-.event-button.permission-subscribers {
-    border-left: 4px solid #ffc107; /* Yellow/Orange for subscribers */
-}
-
-.event-button.permission-specific {
-    border-left: 4px solid #dc3545; /* Red for private/specific */
-}
-
-/* Existing styles (moved from inline) */
-.emote-set {
-    border: 1px solid #ccc;
-    margin: 10px;
-    padding: 15px;
-    border-radius: 5px;
-}
-
-.preview-emotes {
-    display: flex;
-    gap: 5px;
-    margin-top: 10px;
-}
-
-.emote {
-    width: 32px;
-    height: 32px;
-}
-
-/* Edit popup specific users section */
-.specific-users-section {
-    margin-bottom: 15px;
-}
-
-.specific-users-label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-.specific-users-input {
-    width: calc(100% - 100px);
-    padding: 8px;
-    margin-right: 10px;
+/* ============================================
+   BASE STYLES
+   ============================================ */
+* {
     box-sizing: border-box;
-    display: inline-block;
 }
 
-.add-user-button {
-    padding: 8px 16px;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+html {
+    height: 100vh;
+    overflow: hidden;
 }
 
-.edit-users-list {
-    margin-top: 10px;
+body {
+    margin: 0;
+    padding: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    position: relative;
+    height: 100vh;
+    overflow: hidden;
+    color: var(--color-text);  /* Add this line - sets default text color for all elements */
 }
 
-.user-item {
+/* ============================================
+   BACKGROUND VIDEO & OVERLAY
+   ============================================ */
+
+.background-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -2;
+    pointer-events: none;
+}
+
+.background-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(360deg, rgba(61, 87, 87, 1) 0%, rgba(61, 87, 87, 1) 62%, rgba(67, 108, 94, 1) 82%, rgba(92, 156, 138, 1) 94%, rgba(91, 179, 175, 1) 97%, rgba(93, 205, 207, 1) 100%);
+    z-index: -1;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+/* ============================================
+   LOGIN PAGE
+   ============================================ */
+
+#login-with-twitch-section {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
-    margin-bottom: 5px;
-    padding: 5px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
+    justify-content: center;
+    min-height: 100vh;
 }
 
-.remove-user-button {
-    padding: 4px 8px;
-    background: #dc3545;
-    color: white;
+#login-with-twitch-section.hidden {
+    display: none !important;
+}
+
+
+/* ============================================
+   DASHBOARD
+   ============================================ */
+
+   #dashboard {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0 10px;  /* Horizontal padding instead of nav margin */
+}
+
+
+/* ============================================
+   NAVIGATION
+   ============================================ */
+
+nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;  /* Keep this - it will work with flex: 1 on nav-center */
+    max-width: 100vw;
+    margin: 10px 0;
+    min-height: 40px;
+    position: relative;
+}
+
+/* Nav as glass container */
+nav.glass-nav {
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        rgba(255, 255, 255, 0.03) 100%
+    );
+    /* Use CSS blur instead of SVG filter - more reliable on large elements */
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+    border-radius: 999px;
+    padding: 0.5rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: fit-content;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.nav-center {
+    display: flex;
+    justify-content: space-evenly;  /* Center the buttons inside nav-center */
+    align-items: center;
+    flex: 1;  /* Take up all remaining space */
+}
+
+/* Nav buttons as transparent overlays */
+nav .nav-button-overlay {
+    background: transparent;
     border: none;
-    border-radius: 4px;
+    padding: 0.25rem 1rem;
+    margin: 0;
     cursor: pointer;
+    outline: none;
+    transition: all 0.3s ease;
+    border-radius: 999px;
+    position: relative;
+    z-index: 2;
+    white-space: nowrap;
 }
 
-/* Scrollable event list containers */
+/* Ensure home and profile buttons don't overlap center */
+#home-btn {
+    flex-shrink: 0;
+}
+
+#profile-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+nav .nav-button-overlay span {
+    color: white;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    font-family: "Anta", sans-serif;
+}
+
+/* Hover effect for nav buttons */
+nav .nav-button-overlay:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+}
+
+nav .nav-button-overlay:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
+
+/* ============================================
+   CONTENT AREA
+   ============================================ */
+
+   #content-area {
+    margin: 10px;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Critical for flex children to shrink */
+}
+
+/* Homepage content styles */
+#app-title {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 0 0 16px 0;
+    color: var(--color-primary);
+}
+
+#app-description {
+    font-size: 16px;
+    color: #666;
+    margin: 0 0 32px 0;
+    line-height: 1.5;
+}
+
+#social-links {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.social-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: 14px;
+    padding: 8px 16px;
+    border: 1px solid var(--color-primary);
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.social-link:hover {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+/* ============================================
+   LOGIN POPUP OVERLAY
+   ============================================ */
+
+#login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#login-overlay.hidden {
+    display: none !important;
+}
+
+#login-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+#login-popup {
+    position: relative;
+    z-index: 1001;
+    background-color: white;
+    padding: 40px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+}
+
+/* ============================================
+   EVENTS LAYOUT
+   ============================================ */
+
+.events-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.events-main-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.events-sections-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 16px;
+}
+
+/* Make event lists scrollable */
 .active-events-list,
 .expired-events-list {
-    max-height: 500px; /* Adjust as needed */
+    max-height: calc(100vh - 200px);
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 10px;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    background-color: #f8f9fa;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    row-gap: clamp(1rem, 3vw, 1.5rem); /* Slightly larger vertical gap */
+    column-gap: clamp(0.5rem, 2vw, 1rem); /* Keep horizontal gap same */
+    justify-content: space-evenly; 
 }
 
-/* Optional: Custom scrollbar styling */
+/* Optional: Add spacing between sections */
+.active-events-section,
+.expired-events-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
+}
+
+/* Events Header Container */
+.events-header-container {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0;
+    align-items: center;
+    justify-content: space-between;
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* Status Toggle Button Group */
+.status-toggle-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    flex-shrink: 0;
+}
+
+.status-toggle-button {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Search Card */
+.status-search-card {
+    display: flex;
+    padding: 0.75rem 1rem;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.status-search-card input {
+    width: 100%;
+    min-width: clamp(200px, 30vw, 350px);
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.status-toggle-button.active {
+    color: white;
+}
+
+.status-toggle-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: var(--color-primary);
+    border-radius: 2px 2px 0 0;
+}
+
+.status-toggle-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Scrollbar styling for event lists */
 .active-events-list::-webkit-scrollbar,
 .expired-events-list::-webkit-scrollbar {
     width: 8px;
@@ -105,74 +427,512 @@
 
 .active-events-list::-webkit-scrollbar-track,
 .expired-events-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
 }
 
 .active-events-list::-webkit-scrollbar-thumb,
 .expired-events-list::-webkit-scrollbar-thumb {
-    background: #888;
+    background: rgba(255, 255, 255, 0.3);
     border-radius: 4px;
 }
 
 .active-events-list::-webkit-scrollbar-thumb:hover,
 .expired-events-list::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: rgba(255, 255, 255, 0.5);
 }
 
-/* Emote pagination controls */
-.emote-pagination-controls {
+/* Firefox scrollbar (limited support) */
+.active-events-list,
+.expired-events-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+}
+
+/* Event Button Styles */
+.event-button {
+    cursor: pointer;
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 1rem;
+    width: 100%;
+}
+
+/* Ensure event buttons with glass-card still use flex */
+.event-button.glass-card {
+    display: flex; /* More specific selector wins */
+    flex-direction: row;
     align-items: center;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f8f9fa;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.event-text-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem; /* Space between text elements */
+}
+
+/* Base styles - all color blocks share these */
+.color-block {
+    width: 80px;
+    min-width: 80px;        /* Ensures it never gets smaller */
+    flex-shrink: 0;         /* Prevents shrinking in flex container */
+    height: 80px;
     border-radius: 8px;
-    flex-wrap: wrap;
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
 }
 
-.emote-search-input {
+/* Permission-specific - only override what's different */
+.color-block.permission-all {
+    background-color: #01ADA4;
+}
+
+.color-block.permission-followers {
+    background-color: #185F6C;
+}
+
+.color-block.permission-subscribers {
+    background-color: #5a7a6a;
+}
+
+.color-block.permission-specific {
+    background-color: #292e2f;
+}
+
+/* Event Button Child Elements */
+.event-button .vote-title {
+    margin: 0; /* Remove default h2 margins */
+}
+
+.event-button .vote-event-id {
+    margin: 0; /* Remove default margins */
+}
+
+.event-button .time-info {
+    margin: 0; /* Remove default margins */
+    transition: color 0.3s ease;
+}
+
+/* Time-based styling classes (added automatically by countdown timer) */
+.event-button .time-info.time-normal {
+    /* Default styling for events with > 24 hours remaining */
+    color: inherit;
+}
+
+.event-button .time-info.time-warning {
+    /* Styling for events with 1-24 hours remaining */
+    color: inherit;
+}
+
+.event-button .time-info.time-urgent {
+    /* Styling for events with < 1 hour remaining */
+    color: #ff4444; /* Red */
+    font-weight: 700;
+    animation: pulse-urgent 2s ease-in-out infinite;
+}
+
+@keyframes pulse-urgent {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.event-button .username-and-title {
+    margin: 0; /* Remove default h3 margins */
+}
+
+.event-button .total-votes {
+    margin: 0; /* Remove default p margins */
+}
+
+/* ============================================
+   EMOTE LAYOUT
+   ============================================ */
+
+   .emote-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     flex: 1;
-    min-width: 200px;
-    padding: 8px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    font-size: 14px;
+    min-height: 0;
+    overflow: hidden;
 }
 
-.emote-sort-select {
-    padding: 8px;
-    border: 1px solid #dee2e6;
+.emote-voting-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+    grid-auto-rows: minmax(250px, auto);
+    gap: 1rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+    max-height: 100%;
+    box-sizing: border-box;
+}
+
+/* Custom scrollbar styling for emote grid */
+.emote-voting-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.emote-voting-grid::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
-    font-size: 14px;
-    background: white;
+}
+
+.emote-voting-grid::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+
+.emote-voting-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.emote-voting-grid {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+}
+
+.emote-div {
+    display: flex;
+    flex-direction: column;
+    min-height: 250px; /* Add minimum height to match grid rows */
+}
+
+.vote-emote-div.glass-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0.75rem;
+    gap: 0.5rem; /* ADD THIS - space between name and image */
+}
+
+.vote-emote-div img {
+    width: min(90%, 180px); /* Never exceed 180px OR 90% */
+    max-width: 90%;
+    min-width: 48px;
+    height: auto;
+    max-height: min(85%, 180px); /* Constrain both width AND height */
+    object-fit: contain;
+    display: block;
+    flex-shrink: 1;
+    align-self: center;
+}
+
+.vote-buttons-div {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+    width: 100%;
+    flex-shrink: 0;
+    justify-content: center; /* ADD THIS - centers the buttons horizontally */
+}
+
+.vote-buttons-div .vote-button {
+    flex: 1;
+    min-width: 60px;
+    max-width: 80px;
+    height: 0;
+    min-height: 0;
+    aspect-ratio: 1;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* ============================================
+   RESPONSIVE LAYOUTS
+   ============================================ */
+
+/* Sidebar layout for larger screens */
+@media (min-width: 800px) {
+    .events-layout,
+    .emote-layout {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .filter-sort-section,
+    .emote-pagination-controls {
+        min-width: 320px;  /* Changed from width: 280px - allows growth if needed */
+        flex-shrink: 0;
+    }
+
+    .events-layout > div:last-child,
+    .emote-layout > div:last-child {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 799.999px) {
+    .active-events-list,
+    .expired-events-list {
+        max-height: 62vh;
+    }
+}
+/* Events header container responsive adjustments */
+@media (max-width: 960px) {
+    .events-header-container {
+        gap: 0.5rem;
+    }
+    
+    .status-search-card {
+        flex: 0 1 auto;
+        max-width: 250px;
+    }
+    
+    .status-search-card input {
+        width: 100%;
+        min-width: 100px;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 600px) {
+    .events-header-container {
+        gap: 0.5rem;
+    }
+    
+    .status-search-card {
+        max-width: 200px;
+    }
+    
+    .status-search-card input {
+        min-width: 90px;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 500px) {
+    .events-header-container {
+        gap: 0.25rem;
+    }
+}
+
+/* Adjust emote images for smaller screens */
+@media (max-width: 800px) {
+    .vote-emote-div img {
+        width: 80%;
+        max-width: 80%;
+        max-height: 70%; /* More conservative to prevent overflow */
+    }
+}
+
+@media (max-width: 600px) {
+    .vote-emote-div img {
+        width: 75%;
+        max-width: 75%;
+        max-height: 65%;
+    }
+    
+    .vote-emote-div.glass-card {
+        padding: 0.5rem; /* Reduce padding on small screens */
+    }
+}
+
+/* ============================================
+   FILTER AND SORT STYLES
+   ============================================ */
+
+.filter-sort-section {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.filter-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+    width: 100%;
+}
+
+/* Each filter div (label + select/radio) */
+.filter-grid > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+}
+
+.filter-label {
+    white-space: nowrap;
+    font-weight: 500;
+    text-align: left;
+}
+
+.filter-select {
+    flex: 1;
+    min-width: 0;  /* Allows select to shrink if needed */
+}
+
+/* Radio button groups */
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    align-items: flex-start;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     cursor: pointer;
+    justify-content: flex-start;
+    width: 100%;
 }
 
-.emote-page-info {
-    margin: 0 10px;
-    color: #666;
-    font-size: 14px;
+.radio-option input[type="radio"] {
+    cursor: pointer;
+    accent-color: var(--color-primary);
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
 }
 
-.emote-page-button {
-    padding: 8px 16px;
-    background: #007bff;
+.radio-option label {
+    cursor: pointer;
     color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.2s;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    user-select: none;
+    text-align: left;
+    flex: 1;
 }
 
-.emote-page-button:hover:not(:disabled) {
-    background: #0056b3;
-}
-
-.emote-page-button:disabled {
-    background: #ccc;
+.radio-option:has(input:disabled) {
+    opacity: 0.5;
     cursor: not-allowed;
+}
+
+.radio-option:has(input:disabled) label {
+    cursor: not-allowed;
+}
+
+/* Search section - same layout as other filters */
+#filter-sort-section > div:last-child {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.filter-search-input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ============================================
+   GLASS STYLES
+   ============================================ */
+
+/* Interactive glass button */
+.glass-button {
+    position: relative;
+    cursor: pointer;
+    outline: none;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        rgba(255, 255, 255, 0.03) 100%
+    );
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Login button specific styles */
+    padding: 0.75rem 1.5rem;
+    border-radius: 999px;
+    font-size: 1rem;
+}
+
+.glass-button:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
+.glass-button:hover {
+    transform: scale(1.05);
+}
+
+/* Text styling for glass buttons */
+.glass-button span {
+    color: white;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Non-interactive container modifier */
+.glass-card {
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        rgba(255, 255, 255, 0.03) 100%
+    );
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    display: block;
+    transition: box-shadow 0.3s ease;
+}
+
+/* Text styling for glass cards - match nav bar text */
+.glass-card,
+.glass-card * {
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Override for form inputs and selects to maintain visibility */
+.glass-card input,
+.glass-card select,
+.glass-card textarea {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    text-shadow: none; /* Remove text shadow on inputs for better readability */
+}
+
+.glass-card input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.glass-card select option {
+    background: rgba(61, 87, 87, 0.95);
+    color: white;
 }

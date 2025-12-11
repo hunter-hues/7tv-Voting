@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import get_database
-from models import User
+from models import User, ChannelTokens
 import httpx
 import pprint
 import os
@@ -59,7 +59,14 @@ async def get_user_following(request: Request, db: AsyncSession = Depends(get_da
     
     # Fetch followed channels from Twitch
     user_id = user.twitch_user_id
-    access_token = user.access_token
+    # Get access token from ChannelTokens (stored for this user)
+    token_result = await db.execute(
+        select(ChannelTokens).where(ChannelTokens.user_id == user.id)
+    )
+    channel_token = token_result.scalar_one_or_none()
+    if not channel_token or not channel_token.access_token:
+        raise HTTPException(status_code=401, detail="No access token found. Please log in again.")
+    access_token = channel_token.access_token
     client_id = os.getenv("TWITCH_CLIENT_ID")
     
     try:

@@ -75,17 +75,41 @@ export async function createNeutralVote(votingEventId, emoteId) {
     }
 }
 
-export async function createNeutralVotesInBackground(votingEventId, emotes) {
-    console.log(`Creating neutral votes for ${emotes.length} emotes in background...`);
+export async function createNeutralVotesInBackground(votingEventId, emotes, userVotes = {}) {
+    // Filter out emotes the user has already voted on
+    const emotesNeedingVotes = emotes.filter(emote => !userVotes[emote.id]);
     
-    // Process in background without blocking UI
-    for (const emote of emotes) {
-        createNeutralVote(votingEventId, emote.id); // No await!
+    if (emotesNeedingVotes.length === 0) {
+        console.log(`[BATCH VOTES] All ${emotes.length} emotes already have votes - skipping neutral vote creation`);
+        return;
     }
     
-    console.log('Background neutral vote creation started');
-        // After all neutral votes are created, refresh the UI
-        setTimeout(async () => {
+    console.log(`[BATCH VOTES] Creating neutral votes for ${emotesNeedingVotes.length} of ${emotes.length} emotes in single batch call`);
+    
+    // OPTIMIZATION: Batch create all votes in a single API call
+    try {
+        const batchStartTime = performance.now();
+        const response = await fetch('/votes/submit-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                voting_event_id: votingEventId,
+                votes: emotesNeedingVotes.map(emote => ({
+                    emote_id: emote.id,
+                    vote_choice: 'neutral'
+                }))
+            })
+        });
+        
+        const result = await response.json();
+        const batchEndTime = performance.now();
+        const batchDuration = batchEndTime - batchStartTime;
+        
+        if (result.success) {
+            console.log(`[BATCH VOTES] Completed in ${batchDuration.toFixed(2)}ms: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped`);
+            console.log(`[BATCH VOTES] Saved ${emotesNeedingVotes.length} individual API calls by batching`);
+            
+            // Update UI immediately
             try {
                 const updatedVoteData = await getVoteCounts(votingEventId);
                 // Update all neutral buttons to show as active
@@ -99,7 +123,12 @@ export async function createNeutralVotesInBackground(votingEventId, emotes) {
             } catch (error) {
                 console.error('Error updating button states:', error);
             }
-        }, 2000); // Wait 2 seconds for background votes to complete
+        } else {
+            console.error('[BATCH VOTES] Failed to create batch votes:', result.message);
+        }
+    } catch (error) {
+        console.error('[BATCH VOTES] Error creating batch votes:', error);
+    }
 }
 
 

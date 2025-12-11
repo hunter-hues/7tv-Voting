@@ -1,7 +1,7 @@
 import { getUser, getEmoteSets, getEmoteImgUrl } from "./api.js";
 import { displayEmoteSets } from "./emotedisplay.js";
 import { displayVoteCreation } from "./displayVoteCreation.js";
-import { displayVotingEvents } from "./votingInterface.js";
+import { displayVotingEvents, cleanupTimers } from "./votingInterface.js";
 import { displayProfile } from "./profileManager.js";
 
 console.log("JS is connected");
@@ -15,6 +15,9 @@ function setSelectedEmoteSet(data) {
     selectedEmoteSet = data;
 }
 
+// Import user cache
+import { getCachedUser, clearUserCache } from './userCache.js';
+
 // Module-level variables for helper functions
 let currentEmoteSets = null;
 let selectedEmoteSet = null;
@@ -27,21 +30,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const voteCreationButton = document.querySelector('#create-vote-btn');
     const availableVotesButton = document.querySelector('#available-votes-btn');
     const profileButton = document.querySelector('#profile-btn');
+    const homeButton = document.querySelector('#home-btn');
     const twitchLogin = document.querySelector('#login-with-twitch-section');
     const dashboard = document.querySelector('#dashboard');
     const contentArea = document.querySelector('#content-area');
 
+    // Store the initial landing page content
+    const initialContent = contentArea.innerHTML;
+
     // Define checkAuth inside DOMContentLoaded so it has access to twitchLogin and dashboard
     async function checkAuth(){
-        const response = await fetch('/auth/me');
-        const data = await response.json();
-        console.log(data);
-        if (data['authenticated'] == true) {
-            twitchLogin.style.display = 'none';
-            dashboard.style.display = 'block';
-        } else{
-            dashboard.style.display = 'none';
-            twitchLogin.style.display = 'block';
+        const data = await getCachedUser();
+        const isAuthenticated = data && (data.authenticated === true || data.authenticated === 'true');
+        
+        const loginOverlay = document.getElementById('login-overlay');
+        
+        if (isAuthenticated) {
+            // Hide login popup when authenticated
+            if (loginOverlay) loginOverlay.classList.add('hidden');
+        } else {
+            // Show login popup when not authenticated
+            // Dashboard stays visible and functional
+            if (loginOverlay) loginOverlay.classList.remove('hidden');
         }
     }
 
@@ -70,8 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     voteCreationButton.addEventListener('click', async function() {
-        const response = await fetch('/auth/me');
-        const data = await response.json();
+        const data = await getCachedUser();
 
         if (data.authenticated) {
             const username = data.user.login;
@@ -81,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
             contentArea.innerHTML = '';
             
             const personalEmotesTitle = document.createElement('h3');
+            personalEmotesTitle.className = 'section-title';
             personalEmotesTitle.textContent = 'Your emote sets';
             contentArea.appendChild(personalEmotesTitle);
 
@@ -90,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const voteCreation = document.createElement('div');
             voteCreation.id = 'vote-creation';
-            voteCreation.style.display = 'none';
+            voteCreation.className = 'hidden';
             contentArea.appendChild(voteCreation);
             let emoteSets = [];
             try {
@@ -150,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     channelButton.addEventListener('click', function() {
                         const channelData = JSON.parse(channelButton.dataset.channelData);
                         
-                        modListSection.style.display = 'none';
+                        modListSection.classList.add('hidden');
                         
                         moderatorChannelsTitle.textContent = `${channelData.channel_username}'s emote sets`;
                         
@@ -166,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         backButton.addEventListener('click', function() {
                             emoteSetContainer.remove();
                             backButton.remove(); 
-                            modListSection.style.display = 'block';
+                            modListSection.classList.remove('hidden');
                             moderatorChannelsTitle.textContent = 'Channels you moderate for';
                         });
                         
@@ -188,9 +198,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 console.log('Clicked emote set:', emoteSet.name);
                                 setSelectedEmoteSet(emoteSet);
                                 displayVoteCreation(emoteSet, channelData.channel_username);
-                                moderatorSection.style.display = 'none';
-                                personalEmotesTitle.style.display = 'none';
-                                backButton.style.display = 'none';
+                                moderatorSection.classList.add('hidden');
+                                personalEmotesTitle.classList.add('hidden');
+                                backButton.classList.add('hidden');
                             });
                         }
                         
@@ -206,5 +216,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     profileButton.addEventListener('click', async function() {
         displayProfile();
+    });
+
+
+    homeButton.addEventListener('click', function() {
+        // Clear any timers from voting events
+        cleanupTimers();
+        
+        // Restore the original landing page content
+        contentArea.innerHTML = initialContent;
     });
 });
