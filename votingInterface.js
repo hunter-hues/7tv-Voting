@@ -32,67 +32,69 @@ function formatTimeRemaining(remainingMs) {
 // Create countdown timer for an event button
 function createCountdownTimer(timeInfoElement, endTimeISO) {
     const endTime = new Date(endTimeISO);
+    let intervalId = null;
+    let currentInterval = null;
     
-    function update() {
+    function scheduleNext() {
         const now = new Date();
         const remaining = endTime - now;
         
         if (remaining <= 0) {
             timeInfoElement.textContent = "Ended";
             timeInfoElement.classList.add('expired');
-            // Remove urgency classes
             timeInfoElement.classList.remove('time-urgent', 'time-warning', 'time-normal');
-            return null; // Signal to stop
+            if (intervalId) {
+                clearInterval(intervalId);
+                activeTimers.delete(timeInfoElement);
+            }
+            return;
         }
         
         // Update text
         timeInfoElement.textContent = formatTimeRemaining(remaining);
         
-        // Update CSS classes based on time remaining for styling
+        // Update CSS classes
         timeInfoElement.classList.remove('time-urgent', 'time-warning', 'time-normal');
-        if (remaining < 3600000) { // Less than 1 hour
+        if (remaining < 3600000) {
             timeInfoElement.classList.add('time-urgent');
-        } else if (remaining < 86400000) { // Less than 24 hours
+        } else if (remaining < 86400000) {
             timeInfoElement.classList.add('time-warning');
         } else {
             timeInfoElement.classList.add('time-normal');
         }
         
-        // Update frequency: every second if < 1 hour, every minute otherwise
-        if (remaining < 3600000) { // Less than 1 hour
-            return 1000; // Update every second
-        } else {
-            return 60000; // Update every minute
+        // Determine next interval
+        const nextInterval = remaining < 3600000 ? 1000 : 60000;
+        
+        // If interval changed, restart
+        if (currentInterval !== null && nextInterval !== currentInterval) {
+            clearInterval(intervalId);
+            currentInterval = nextInterval;
+            intervalId = setInterval(scheduleNext, currentInterval);
+            activeTimers.set(timeInfoElement, intervalId);
+        } else if (currentInterval === null) {
+            // First time
+            currentInterval = nextInterval;
         }
     }
     
-    // Initial update
+    // Initial check
     const now = new Date();
     const remaining = endTime - now;
     if (remaining <= 0) {
-        update(); // Set to "Ended"
+        scheduleNext();
         return null;
     }
     
-    // Determine initial interval based on remaining time
+    // Initial update
+    scheduleNext();
+    
+    // Start interval
     const startInterval = remaining < 3600000 ? 1000 : 60000;
+    currentInterval = startInterval;
+    intervalId = setInterval(scheduleNext, startInterval);
     
-    // Do initial update
-    update();
-    
-    let interval = setInterval(() => {
-        const nextInterval = update();
-        if (nextInterval === null) {
-            clearInterval(interval);
-            activeTimers.delete(timeInfoElement);
-        } else if (nextInterval !== startInterval) {
-            // Interval needs to change - restart with new frequency
-            clearInterval(interval);
-            interval = setInterval(update, nextInterval);
-        }
-    }, startInterval);
-    
-    return interval;
+    return intervalId;
 }
 
 // Cleanup function for timers
@@ -155,7 +157,7 @@ async function createVotingInterface(event, isExpired = false) {
 
     // Create event info header
     const infoHeader = document.createElement('div');
-    infoHeader.className = 'event-info-header';
+    infoHeader.className = 'event-info-header glass-card';
 
     // Event title and creator
     const titleSection = document.createElement('h2');
@@ -169,7 +171,34 @@ async function createVotingInterface(event, isExpired = false) {
     // Time info
     const timeInfo = document.createElement('p');
     timeInfo.className = `event-time-info ${isExpired ? 'expired' : 'active'}`;
-    timeInfo.textContent = event.time_remaining || event.time_ended || 'Time info unavailable';
+
+    if (!isExpired) {
+        // Check if we have end_time for live countdown
+        if (event.end_time) {
+            // Set initial display
+            const endTime = new Date(event.end_time);
+            const now = new Date();
+            const remaining = endTime - now;
+            if (remaining > 0) {
+                timeInfo.textContent = formatTimeRemaining(remaining);
+                // Start countdown timer
+                const timerId = createCountdownTimer(timeInfo, event.end_time);
+                if (timerId) {
+                    // Store in map for cleanup
+                    activeTimers.set(timeInfo, timerId);
+                }
+            } else {
+                timeInfo.textContent = "Ended";
+                timeInfo.classList.add('expired');
+            }
+        } else {
+            // Fallback to static time_remaining if end_time not available
+            timeInfo.textContent = event.time_remaining || 'Time info unavailable';
+        }
+    } else {
+        timeInfo.textContent = event.time_ended || 'Time info unavailable';
+        timeInfo.classList.add('expired');
+    }
 
     // Calculate total votes across all emotes
     let totalKeep = 0, totalNeutral = 0, totalRemove = 0;
@@ -195,9 +224,6 @@ async function createVotingInterface(event, isExpired = false) {
     infoHeader.appendChild(timeInfo);
     infoHeader.appendChild(voteStats);
 
-    // Add header to page
-    contentArea.appendChild(infoHeader);
-
     // Pagination state
     let currentPage = 1;
     const emotesPerPage = 20;
@@ -205,6 +231,85 @@ async function createVotingInterface(event, isExpired = false) {
     let sortedEmotes = [...emotes];
     let searchTerm = '';
     let sortBy = 'default';
+
+    // Create emote grid early (needed for renderEmotePage)
+    const emoteGrid = document.createElement('div');
+    emoteGrid.className = 'emote-voting-grid';
+
+    // Create pagination controls container
+    const paginationControls = document.createElement('div');
+    paginationControls.className = 'emote-pagination-controls';
+
+    // Search input
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search emotes by name...';
+    searchInput.className = 'emote-search-input';
+
+    // Sort select
+    const sortSelect = document.createElement('select');
+    sortSelect.className = 'emote-sort-select';
+    sortSelect.innerHTML = `
+        <option value="default">Default Order</option>
+        <option value="name-asc">Name (A-Z)</option>
+        <option value="name-desc">Name (Z-A)</option>
+        <option value="total-votes-desc">Total Votes (High to Low)</option>
+        <option value="total-votes-asc">Total Votes (Low to High)</option>
+        <option value="positive-votes-desc">Positive Votes (High to Low)</option>
+        <option value="positive-votes-asc">Positive Votes (Low to High)</option>
+        <option value="negative-votes-desc">Negative Votes (High to Low)</option>
+        <option value="negative-votes-asc">Negative Votes (Low to High)</option>
+        <option value="ratio-desc">Keep/Remove Ratio (High to Low)</option>
+        <option value="ratio-asc">Keep/Remove Ratio (Low to High)</option>
+    `;
+
+    // Page info
+    const pageInfo = document.createElement('span');
+    pageInfo.className = 'emote-page-info';
+
+    // Navigation buttons
+    const prevButton = document.createElement('button');
+    prevButton.textContent = 'Previous';
+    prevButton.className = 'emote-page-button';
+
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Next';
+    nextButton.className = 'emote-page-button';
+
+    // Assemble controls
+    const controlsLeft = document.createElement('div');
+    controlsLeft.className = 'controls-left';
+    controlsLeft.appendChild(searchInput);
+    controlsLeft.appendChild(sortSelect);
+
+    const controlsRight = document.createElement('div');
+    controlsRight.className = 'controls-right';
+    controlsRight.appendChild(prevButton);
+    controlsRight.appendChild(pageInfo);
+    controlsRight.appendChild(nextButton);
+
+    paginationControls.appendChild(controlsLeft);
+    paginationControls.appendChild(controlsRight);
+
+    // Append pagination controls to header
+    infoHeader.appendChild(paginationControls);
+
+    // Add edit button to header if user can edit
+    if (canEdit) {
+        const editButton = document.createElement('button');
+        editButton.id = 'edit-button';
+        editButton.className = 'edit-event-button';
+        editButton.textContent = 'Edit Event';
+    
+        editButton.addEventListener('click', async function () {
+            openEditPopup(event);
+        });
+        
+        infoHeader.appendChild(editButton);
+    }
+
+    // Add header to page
+    contentArea.appendChild(infoHeader);
 
     // Helper function to filter emotes
     function filterEmotes(emotes, searchTerm) {
@@ -348,7 +453,7 @@ async function createVotingInterface(event, isExpired = false) {
         const userVote = userVotes ? userVotes[emote.id] : null;
         
         const keepButton = document.createElement('button');
-        keepButton.className = 'vote-button vote-keep';
+        keepButton.className = 'vote-button vote-keep glass-card';
         keepButton.textContent = `yes (${voteCounts[emote.id]?.keep || 0})`;
         if (userVote === 'keep') {
             keepButton.classList.add('active');
@@ -360,7 +465,7 @@ async function createVotingInterface(event, isExpired = false) {
         }
 
         const neutralButton = document.createElement('button');
-        neutralButton.className = 'vote-button vote-neutral';
+        neutralButton.className = 'vote-button vote-neutral glass-card';
         neutralButton.textContent = `idc (${voteCounts[emote.id]?.neutral || 0})`;
         if (userVote === 'neutral') {
             neutralButton.classList.add('active');
@@ -372,7 +477,7 @@ async function createVotingInterface(event, isExpired = false) {
         }
 
         const removeButton = document.createElement('button');
-        removeButton.className = 'vote-button vote-remove';
+        removeButton.className = 'vote-button vote-remove glass-card';
         removeButton.textContent = `no (${voteCounts[emote.id]?.remove || 0})`;
         if (userVote === 'remove') {
             removeButton.classList.add('active');
@@ -517,11 +622,19 @@ async function createVotingInterface(event, isExpired = false) {
             }
         });
 
-        emoteDiv.appendChild(emoteName);
-        emoteDiv.appendChild(emoteImg);
-        emoteDiv.appendChild(keepButton);
-        emoteDiv.appendChild(neutralButton);
-        emoteDiv.appendChild(removeButton);
+        const voteButtonsDiv = document.createElement('div');
+        voteButtonsDiv.className = 'vote-buttons-div'
+        voteButtonsDiv.appendChild(keepButton);
+        voteButtonsDiv.appendChild(neutralButton);
+        voteButtonsDiv.appendChild(removeButton);
+
+        const voteEmoteDiv = document.createElement('div');
+        voteEmoteDiv.className = 'vote-emote-div glass-card';
+        voteEmoteDiv.appendChild(emoteName);
+        voteEmoteDiv.appendChild(emoteImg);
+
+        emoteDiv.appendChild(voteEmoteDiv);
+        emoteDiv.appendChild(voteButtonsDiv);
         
         return emoteDiv;
     }
@@ -555,64 +668,6 @@ async function createVotingInterface(event, isExpired = false) {
         prevButton.disabled = currentPage === 1;
         nextButton.disabled = currentPage >= totalPages || totalPages === 0;
     }
-
-    const emoteGrid = document.createElement('div');
-    emoteGrid.className = 'emote-voting-grid';
-    
-    // Create pagination controls container
-    const paginationControls = document.createElement('div');
-    paginationControls.className = 'emote-pagination-controls';
-    
-    // Search input
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.placeholder = 'Search emotes by name...';
-    searchInput.className = 'emote-search-input';
-    
-    // Sort select
-    const sortSelect = document.createElement('select');
-    sortSelect.className = 'emote-sort-select';
-    sortSelect.innerHTML = `
-        <option value="default">Default Order</option>
-        <option value="name-asc">Name (A-Z)</option>
-        <option value="name-desc">Name (Z-A)</option>
-        <option value="total-votes-desc">Total Votes (High to Low)</option>
-        <option value="total-votes-asc">Total Votes (Low to High)</option>
-        <option value="positive-votes-desc">Positive Votes (High to Low)</option>
-        <option value="positive-votes-asc">Positive Votes (Low to High)</option>
-        <option value="negative-votes-desc">Negative Votes (High to Low)</option>
-        <option value="negative-votes-asc">Negative Votes (Low to High)</option>
-        <option value="ratio-desc">Keep/Remove Ratio (High to Low)</option>
-        <option value="ratio-asc">Keep/Remove Ratio (Low to High)</option>
-    `;
-    
-    // Page info
-    const pageInfo = document.createElement('span');
-    pageInfo.className = 'emote-page-info';
-    
-    // Navigation buttons
-    const prevButton = document.createElement('button');
-    prevButton.textContent = 'Previous';
-    prevButton.className = 'emote-page-button';
-    
-    const nextButton = document.createElement('button');
-    nextButton.textContent = 'Next';
-    nextButton.className = 'emote-page-button';
-    
-    // Assemble controls
-    const controlsLeft = document.createElement('div');
-    controlsLeft.className = 'controls-left';
-    controlsLeft.appendChild(searchInput);
-    controlsLeft.appendChild(sortSelect);
-    
-    const controlsRight = document.createElement('div');
-    controlsRight.className = 'controls-right';
-    controlsRight.appendChild(prevButton);
-    controlsRight.appendChild(pageInfo);
-    controlsRight.appendChild(nextButton);
-    
-    paginationControls.appendChild(controlsLeft);
-    paginationControls.appendChild(controlsRight);
     
     // Debounce helper function
     function debounce(func, wait) {
@@ -681,19 +736,6 @@ async function createVotingInterface(event, isExpired = false) {
     // Optimize: Only create votes for emotes the user hasn't voted on yet
     if (!isExpired) {
         createNeutralVotesInBackground(event.id, emotes, userVotes);
-
-        if (canEdit) {
-            const editButton = document.createElement('button');
-            editButton.id = 'edit-button';
-            editButton.className = 'edit-event-button';
-            editButton.textContent = 'Edit Event';
-        
-            editButton.addEventListener('click', async function () {
-                openEditPopup(event);
-            });
-            
-            emoteGrid.appendChild(editButton);
-        }
     }
     
     // Initial render
@@ -703,8 +745,7 @@ async function createVotingInterface(event, isExpired = false) {
     const emoteLayout = document.createElement('div');
     emoteLayout.className = 'emote-layout';
     
-    // Append pagination controls and grid to layout wrapper
-    emoteLayout.appendChild(paginationControls);
+    // Append only grid to layout wrapper (pagination controls are now in header)
     emoteLayout.appendChild(emoteGrid);
     
     // Append layout wrapper to content area
@@ -1327,59 +1368,84 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
     const filterGrid = document.createElement('div');
     filterGrid.className = 'filter-grid';
     
-    // Status filter
-    const statusFilterDiv = document.createElement('div');
-    const statusLabel = document.createElement('label');
-    statusLabel.setAttribute('for', 'status-filter');
-    statusLabel.className = 'filter-label';
-    statusLabel.textContent = 'Status:';
-    const statusSelect = document.createElement('select');
-    statusSelect.id = 'status-filter';
-    statusSelect.className = 'filter-select';
-    statusSelect.innerHTML = `
-        <option value="all">All Events</option>
-        <option value="active" selected>Active Only</option>
-        <option value="expired">Expired Only</option>
-    `;
-    statusFilterDiv.appendChild(statusLabel);
-    statusFilterDiv.appendChild(statusSelect);
-    
-    // Permission filter
+    // Permission filter - Radio buttons
     const permissionFilterDiv = document.createElement('div');
     const permissionLabel = document.createElement('label');
-    permissionLabel.setAttribute('for', 'permission-filter');
     permissionLabel.className = 'filter-label';
     permissionLabel.textContent = 'Permission:';
-    const permissionSelect = document.createElement('select');
-    permissionSelect.id = 'permission-filter';
-    permissionSelect.className = 'filter-select';
-    permissionSelect.innerHTML = `
-        <option value="">All Types</option>
-        <option value="all">All Users</option>
-        <option value="followers">Followers Only</option>
-        <option value="subscribers">Subscribers Only</option>
-        <option value="specific">Specific Users</option>
-    `;
     permissionFilterDiv.appendChild(permissionLabel);
-    permissionFilterDiv.appendChild(permissionSelect);
     
-    // Creator filter
+    const permissionRadioGroup = document.createElement('div');
+    permissionRadioGroup.className = 'radio-group';
+    
+    const permissionOptions = [
+        { value: '', label: 'All Types' },
+        { value: 'all', label: 'All Users' },
+        { value: 'followers', label: 'Followers Only' },
+        { value: 'subscribers', label: 'Subscribers Only' },
+        { value: 'specific', label: 'Specific Users' }
+    ];
+    
+    permissionOptions.forEach((option, index) => {
+        const radioDiv = document.createElement('div');
+        radioDiv.className = 'radio-option';
+        
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'permission-filter';
+        radio.id = `permission-${option.value || 'all-types'}`;
+        radio.value = option.value;
+        if (index === 0) radio.checked = true; // Default to "All Types"
+        
+        const radioLabel = document.createElement('label');
+        radioLabel.setAttribute('for', radio.id);
+        radioLabel.textContent = option.label;
+        
+        radioDiv.appendChild(radio);
+        radioDiv.appendChild(radioLabel);
+        permissionRadioGroup.appendChild(radioDiv);
+    });
+    
+    permissionFilterDiv.appendChild(permissionRadioGroup);
+    
+    // Creator filter - Radio buttons
     const creatorFilterDiv = document.createElement('div');
     const creatorLabel = document.createElement('label');
-    creatorLabel.setAttribute('for', 'creator-filter');
     creatorLabel.className = 'filter-label';
     creatorLabel.textContent = 'Creator:';
-    const creatorSelect = document.createElement('select');
-    creatorSelect.id = 'creator-filter';
-    creatorSelect.className = 'filter-select';
-    creatorSelect.innerHTML = `
-        <option value="all">All Creators</option>
-        <option value="my-events">My Events</option>
-        <option value="moderate">Events I Moderate</option>
-        <option value="following">Channels I Follow</option>
-    `;
     creatorFilterDiv.appendChild(creatorLabel);
-    creatorFilterDiv.appendChild(creatorSelect);
+    
+    const creatorRadioGroup = document.createElement('div');
+    creatorRadioGroup.className = 'radio-group';
+    
+    const creatorOptions = [
+        { value: 'all', label: 'All Creators' },
+        { value: 'my-events', label: 'My Events' },
+        { value: 'moderate', label: 'Events I Moderate' },
+        { value: 'following', label: 'Channels I Follow' }
+    ];
+    
+    creatorOptions.forEach((option, index) => {
+        const radioDiv = document.createElement('div');
+        radioDiv.className = 'radio-option';
+        
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'creator-filter';
+        radio.id = `creator-${option.value}`;
+        radio.value = option.value;
+        if (index === 0) radio.checked = true; // Default to "All Creators"
+        
+        const radioLabel = document.createElement('label');
+        radioLabel.setAttribute('for', radio.id);
+        radioLabel.textContent = option.label;
+        
+        radioDiv.appendChild(radio);
+        radioDiv.appendChild(radioLabel);
+        creatorRadioGroup.appendChild(radioDiv);
+    });
+    
+    creatorFilterDiv.appendChild(creatorRadioGroup);
     
     // Sort select
     const sortFilterDiv = document.createElement('div');
@@ -1403,27 +1469,19 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
     sortFilterDiv.appendChild(sortLabel);
     sortFilterDiv.appendChild(sortSelect);
     
-    filterGrid.appendChild(statusFilterDiv);
     filterGrid.appendChild(permissionFilterDiv);
     filterGrid.appendChild(creatorFilterDiv);
     filterGrid.appendChild(sortFilterDiv);
     
-    // Search input
-    const searchDiv = document.createElement('div');
-    const searchLabel = document.createElement('label');
-    searchLabel.setAttribute('for', 'search-input');
-    searchLabel.className = 'filter-label';
-    searchLabel.textContent = 'Search:';
+    // Search input (will be moved to status button group)
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.id = 'search-input';
     searchInput.className = 'filter-search-input';
     searchInput.placeholder = 'Search by title, creator, or emote set...';
-    searchDiv.appendChild(searchLabel);
-    searchDiv.appendChild(searchInput);
     
     filterAndSortSection.appendChild(filterGrid);
-    filterAndSortSection.appendChild(searchDiv);
+    // Search will be moved to status button group
 
     // Create events layout wrapper
     const eventsLayout = document.createElement('div');
@@ -1433,9 +1491,10 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
     eventsLayout.appendChild(filterAndSortSection);
     
     // Get references to all filter controls (using the elements we just created)
-    const statusFilter = statusSelect;
-    const permissionFilter = permissionSelect;
-    const creatorFilter = creatorSelect;
+    // Status filter will be created as buttons later
+    let currentStatus = 'active';
+    const permissionRadios = permissionRadioGroup.querySelectorAll('input[type="radio"]');
+    const creatorRadios = creatorRadioGroup.querySelectorAll('input[type="radio"]');
     // sortSelect and searchInput are already defined above
 
     // Store current user info for filtering
@@ -1494,9 +1553,9 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         const startTime = performance.now();
         
         const allButtons = document.querySelectorAll('.event-button');
-        const statusValue = statusFilter.value;
-        const permissionValue = permissionFilter.value;
-        const creatorValue = creatorFilter.value;
+        const statusValue = currentStatus;
+        const permissionValue = permissionRadioGroup.querySelector('input[type="radio"]:checked')?.value || '';
+        const creatorValue = creatorRadioGroup.querySelector('input[type="radio"]:checked')?.value || 'all';
         const sortValue = sortSelect.value;
         const searchValue = searchInput.value.toLowerCase().trim();
         
@@ -1509,7 +1568,7 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
             
             if (followedChannels.size === 0 || !cacheValid) {
                 // Show loading state
-                creatorFilter.disabled = true;
+                creatorRadios.forEach(radio => radio.disabled = true);
                 try {
                     const fetchStartTime = performance.now();
                     const response = await fetch('/user/following', { credentials: 'include' });
@@ -1527,11 +1586,12 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
                 } catch (error) {
                     console.error('Failed to fetch followed channels:', error);
                     alert('Failed to load followed channels. Please try again.');
-                    creatorFilter.value = 'all';
-                    creatorFilter.disabled = false;
+                    const allCreatorRadio = creatorRadioGroup.querySelector('input[value="all"]');
+                    if (allCreatorRadio) allCreatorRadio.checked = true;
+                    creatorRadios.forEach(radio => radio.disabled = false);
                     return;
                 }
-                creatorFilter.disabled = false;
+                creatorRadios.forEach(radio => radio.disabled = false);
             } else {
                 console.log(`[FOLLOWED CHANNELS CACHE] Using cached followed channels (${followedChannels.size} channels)`);
             }
@@ -1627,23 +1687,15 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
             }
         });
         
-        // Hide section titles AND sections if no buttons are visible in that section
-        const activeTitle = document.querySelector('.active-section-title');
-        const expiredTitle = document.querySelector('.expired-section-title');
+        // Hide sections if no buttons are visible in that section
         const activeSectionContainer = document.querySelector('.active-events-section');
         const expiredSectionContainer = document.querySelector('.expired-events-section');
 
         const activeVisible = visibleButtons.some(btn => getCachedEventData(btn).is_active);
         const expiredVisible = visibleButtons.some(btn => !getCachedEventData(btn).is_active);
 
-        if (activeTitle) {
-            activeTitle.classList.toggle('hidden', !activeVisible);
-        }
         if (activeSectionContainer) {
             activeSectionContainer.classList.toggle('hidden', !activeVisible);
-        }
-        if (expiredTitle) {
-            expiredTitle.classList.toggle('hidden', !expiredVisible);
         }
         if (expiredSectionContainer) {
             expiredSectionContainer.classList.toggle('hidden', !expiredVisible);
@@ -1681,9 +1733,12 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
     }
 
     // Attach event listeners
-    statusFilter.addEventListener('change', applyFiltersAndSort);
-    permissionFilter.addEventListener('change', applyFiltersAndSort);
-    creatorFilter.addEventListener('change', applyFiltersAndSort);
+    permissionRadios.forEach(radio => {
+        radio.addEventListener('change', applyFiltersAndSort);
+    });
+    creatorRadios.forEach(radio => {
+        radio.addEventListener('change', applyFiltersAndSort);
+    });
     sortSelect.addEventListener('change', applyFiltersAndSort);
     
     // Debounced search with debug logging
@@ -1716,19 +1771,64 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         contentArea.innerHTML = '<h2>No voting events available</h2>';
         return;
     }
+    // Create status toggle button group
+    const statusButtonGroup = document.createElement('div');
+    statusButtonGroup.className = 'status-toggle-group glass-card';
+
+    const activeButton = document.createElement('button');
+    activeButton.className = 'status-toggle-button active';
+    activeButton.textContent = 'Active';
+    activeButton.dataset.status = 'active';
+
+    const expiredButton = document.createElement('button');
+    expiredButton.className = 'status-toggle-button';
+    expiredButton.textContent = 'Expired';
+    expiredButton.dataset.status = 'expired';
+
+    statusButtonGroup.appendChild(activeButton);
+    statusButtonGroup.appendChild(expiredButton);
+    
+    // Create separate search card
+    const searchCard = document.createElement('div');
+    searchCard.className = 'status-search-card glass-card';
+    searchCard.appendChild(searchInput);
+
+    // Status button listeners
+    activeButton.addEventListener('click', () => {
+        currentStatus = 'active';
+        activeButton.classList.add('active');
+        expiredButton.classList.remove('active');
+        applyFiltersAndSort();
+    });
+
+    expiredButton.addEventListener('click', () => {
+        currentStatus = 'expired';
+        expiredButton.classList.add('active');
+        activeButton.classList.remove('active');
+        applyFiltersAndSort();
+    });
+
     // Create main container for both sections
     const mainContainer = document.createElement('div');
-    mainContainer.className = 'events-main-container';  
+    mainContainer.className = 'events-main-container';
+    
+    // Create sections wrapper for side-by-side layout
+    const sectionsWrapper = document.createElement('div');
+    sectionsWrapper.className = 'events-sections-wrapper';
+    
+    // Create header container for status buttons and search
+    const headerContainer = document.createElement('div');
+    headerContainer.className = 'events-header-container';
+    headerContainer.appendChild(statusButtonGroup);
+    headerContainer.appendChild(searchCard);
+    
+    // Add header container to main container (replaces section titles)
+    mainContainer.appendChild(headerContainer);
 
     // Active Events Section
     if (activeEvents && activeEvents.length > 0) {
         const activeSection = document.createElement('div');
         activeSection.className = 'active-events-section';
-        
-        const activeTitle = document.createElement('h2');
-        activeTitle.className = 'section-title active-section-title';
-        activeTitle.textContent = 'Active Voting Events';
-        activeSection.appendChild(activeTitle);
         
         const activeEventList = document.createElement('div');
         activeEventList.classList.add('active-events-list');
@@ -1739,18 +1839,13 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         });
         
         activeSection.appendChild(activeEventList);
-        mainContainer.appendChild(activeSection);
+        sectionsWrapper.appendChild(activeSection);
     }
 
     // Expired Events Section
     if (expiredEvents && expiredEvents.length > 0) {
         const expiredSection = document.createElement('div');
         expiredSection.className = 'expired-events-section';
-        
-        const expiredTitle = document.createElement('h2');
-        expiredTitle.className = 'section-title expired-section-title';
-        expiredTitle.textContent = 'Recent Results';
-        expiredSection.appendChild(expiredTitle);
         
         const expiredEventList = document.createElement('div');
         expiredEventList.classList.add('expired-events-list');
@@ -1761,8 +1856,11 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
         });
         
         expiredSection.appendChild(expiredEventList);
-        mainContainer.appendChild(expiredSection);
+        sectionsWrapper.appendChild(expiredSection);
     }
+    
+    // Append sections wrapper to main container
+    mainContainer.appendChild(sectionsWrapper);
 
     // Append main container to layout wrapper
     eventsLayout.appendChild(mainContainer);

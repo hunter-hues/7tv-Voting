@@ -67,12 +67,17 @@ async def get_emotes_from_set(emote_set_id: str):
 
         }}
     """
-    async with httpx.AsyncClient() as client:
+    timeout = httpx.Timeout(10.0, connect=5.0)  # 10s total, 5s to connect
+    async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post("https://7tv.io/v3/gql", json={"query": query})
-        data = response.json().get("data")
         if response.status_code != 200:
-            raise HTTPException(status_code=500, detail='7TV API error')
-        elif not data or not data.get('emoteSet'):
+            print(f"7TV API Error - Status: {response.status_code}")
+            print(f"Response body: {response.text}")
+            raise HTTPException(status_code=500, detail=f'7TV API error: {response.status_code}')
+            
+        data = response.json().get("data")
+
+        if not data or not data.get('emoteSet'):
             raise HTTPException(status_code=404, detail='emote set not found')
         else:
             emotes = [
