@@ -445,7 +445,7 @@ async function createVotingInterface(event, isExpired = false) {
         const emoteDiv = document.createElement('div');
         emoteDiv.id = emote.id;
         emoteDiv.classList.add('emote-div');
-        const emoteUrl = getEmoteImgUrl(emote.id, '2');
+        const emoteUrl = getEmoteImgUrl(emote.id, '4');
         const emoteImg = document.createElement('img');
         emoteImg.src = emoteUrl;
         const emoteName = document.createElement('h3');
