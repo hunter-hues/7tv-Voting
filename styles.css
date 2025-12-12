@@ -294,7 +294,6 @@ nav .nav-button-overlay:focus-visible {
 #login-popup {
     position: relative;
     z-index: 1001;
-    background-color: white;
     padding: 40px;
     border-radius: 12px;
     display: flex;
@@ -303,6 +302,172 @@ nav .nav-button-overlay:focus-visible {
     text-align: center;
     max-width: 500px;
     width: 90%;
+}
+
+/* ============================================
+   EDIT EVENT POPUP
+   ============================================ */
+
+/* Backdrop - darkens background */
+.popup-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Popup container - the modal box with glass effect */
+.popup-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2001;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 2rem;
+    border-radius: 1rem;
+    /* Glass card effect */
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        rgba(255, 255, 255, 0.03) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    /* Firefox scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+}
+
+/* Custom scrollbar for popup */
+.popup-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.popup-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.popup-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+
+.popup-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Header section */
+.popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+}
+
+.popup-header-title {
+    margin: 0;
+    font-size: 1.5rem;
+    color: white;
+    flex: 1;
+}
+
+.popup-close-button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.popup-close-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+/* Form sections */
+.popup-form-section {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* Button section at bottom */
+.popup-button-section {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.popup-button {
+    flex: 1;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.popup-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.save-button {
+    background: linear-gradient(135deg, rgba(46, 213, 115, 0.8), rgba(39, 174, 96, 0.8));
+    color: white;
+}
+
+.save-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(46, 213, 115, 1), rgba(39, 174, 96, 1));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(46, 213, 115, 0.4);
+}
+
+.end-now-button {
+    background: linear-gradient(135deg, rgba(235, 77, 75, 0.8), rgba(214, 48, 49, 0.8));
+    color: white;
+}
+
+.end-now-button:hover {
+    background: linear-gradient(135deg, rgba(235, 77, 75, 1), rgba(214, 48, 49, 1));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(235, 77, 75, 0.4);
 }
 
 /* ============================================
@@ -568,11 +733,16 @@ nav .nav-button-overlay:focus-visible {
     overflow: hidden;
 }
 
+.event-title {
+    margin: 0px;
+}
+
 .emote-voting-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
     grid-auto-rows: minmax(250px, auto);
     gap: 1rem;
+    justify-content: center;
     overflow-y: auto;
     overflow-x: hidden;
     flex: 1;
@@ -614,7 +784,7 @@ nav .nav-button-overlay:focus-visible {
 .vote-emote-div.glass-card {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start; /* Name stays at top */
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -623,19 +793,21 @@ nav .nav-button-overlay:focus-visible {
     box-sizing: border-box;
     min-width: 0;
     padding: 0.75rem;
-    gap: 0.5rem; /* ADD THIS - space between name and image */
+    gap: 0.5rem;
 }
 
 .vote-emote-div img {
-    width: min(90%, 180px); /* Never exceed 180px OR 90% */
+    width: min(90%, 180px);
     max-width: 90%;
     min-width: 48px;
     height: auto;
-    max-height: min(85%, 180px); /* Constrain both width AND height */
+    max-height: min(85%, 180px);
     object-fit: contain;
     display: block;
     flex-shrink: 1;
     align-self: center;
+    margin-top: auto; /* ADD THIS */
+    margin-bottom: auto; /* ADD THIS - centers image in remaining space */
 }
 
 .vote-buttons-div {
