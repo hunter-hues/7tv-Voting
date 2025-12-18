@@ -24,6 +24,7 @@ export function displayVoteCreation(selectedEmoteSet, username) {
     emoteSetTitle.textContent = `Creating vote for: ${selectedEmoteSet.name}`;
 
     const votingForm = document.createElement('form');
+    votingForm.className = 'glass-card vote-creation-form';
 
     //Title Section
     const titleSection = document.createElement('div');
@@ -145,7 +146,7 @@ export function displayVoteCreation(selectedEmoteSet, username) {
 
     // Add user button
     const addUserButton = document.createElement('button');
-    addUserButton.className = 'add-user-button';
+    addUserButton.className = 'glass-button add-user-button';
     addUserButton.type = 'button';
     addUserButton.textContent = 'Add User';
     addUserButton.id = 'add-user-btn';
@@ -208,6 +209,7 @@ export function displayVoteCreation(selectedEmoteSet, username) {
     const submitSection = document.createElement('div');
     submitSection.className = 'form-section';
     const submitButton = document.createElement('button');
+    submitButton.className = 'glass-button submit-vote-button';
     submitButton.textContent = 'Start Vote';
     submitButton.disabled = true;
 

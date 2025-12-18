@@ -6,7 +6,7 @@ export function displayEmoteSets(emoteSetsData, displayVoteCreation, setCurrentE
     container.innerHTML = '';
     for(let emoteSet of emoteSetsData.emote_sets) {
         const parentDiv = document.createElement('button');
-        parentDiv.className = 'emote-set';
+        parentDiv.className = 'emote-set glass-card';
         const setName = document.createElement('h3');
         setName.textContent = emoteSet.name
         parentDiv.appendChild(setName)

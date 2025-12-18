@@ -226,7 +226,7 @@ async function createVotingInterface(event, isExpired = false) {
 
     // Pagination state
     let currentPage = 1;
-    const emotesPerPage = 20;
+    const emotesPerPage = 24;
     let filteredEmotes = [...emotes];
     let sortedEmotes = [...emotes];
     let searchTerm = '';
@@ -508,6 +508,10 @@ async function createVotingInterface(event, isExpired = false) {
                 removeButton.classList.remove('active');
                 removeButton.classList.add('inactive');
 
+                // Trigger flip animation
+                emoteImg.classList.add('flip-animation');
+                setTimeout(() => emoteImg.classList.remove('flip-animation'), 600);
+
                 const updatedVoteData = await getVoteCounts(event.id);
                 keepButton.textContent = `yes (${updatedVoteData.vote_counts[emote.id]?.keep || 0})`;
                 neutralButton.textContent = `idc (${updatedVoteData.vote_counts[emote.id]?.neutral || 0})`;
@@ -550,6 +554,10 @@ async function createVotingInterface(event, isExpired = false) {
                 neutralButton.classList.add('inactive');
                 removeButton.classList.remove('inactive');
                 removeButton.classList.add('active');
+
+                // Trigger flip animation
+                emoteImg.classList.add('flip-animation');
+                setTimeout(() => emoteImg.classList.remove('flip-animation'), 600);
 
                 const updatedVoteData = await getVoteCounts(event.id);
                 // Update voteCounts object for sorting
@@ -595,6 +603,10 @@ async function createVotingInterface(event, isExpired = false) {
                 neutralButton.classList.add('active');
                 removeButton.classList.remove('active');
                 removeButton.classList.add('inactive');
+
+                // Trigger flip animation
+                emoteImg.classList.add('flip-animation');
+                setTimeout(() => emoteImg.classList.remove('flip-animation'), 600);
 
                 const updatedVoteData = await getVoteCounts(event.id);
                 // Update voteCounts object for sorting
