@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Store the initial landing page content
     const initialContent = contentArea.innerHTML;
 
+    // Set home button as active by default on page load
+    homeButton.classList.add('active');
+
     // Define checkAuth inside DOMContentLoaded so it has access to twitchLogin and dashboard
     async function checkAuth(){
         const data = await getCachedUser();
@@ -64,6 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     availableVotesButton.addEventListener('click', async function() {
+        // Update active nav button
+        homeButton.classList.remove('active');
+        profileButton.classList.remove('active');
+        availableVotesButton.classList.add('active');
+        voteCreationButton.classList.remove('active');
+        
         try {
             const response = await fetch('/votes/voting-events');
             const data = await response.json();
@@ -80,6 +89,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     voteCreationButton.addEventListener('click', async function() {
+        // Update active nav button
+        homeButton.classList.remove('active');
+        profileButton.classList.remove('active');
+        availableVotesButton.classList.remove('active');
+        voteCreationButton.classList.add('active');
+        
         const data = await getCachedUser();
 
         if (data.authenticated) {
@@ -152,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 for (let i = 0; i < modList.mod_channels.length; i++) {
                     const channelButton = document.createElement('button');
-                    channelButton.classList = 'channel-button';
+                    channelButton.className = 'channel-button glass-card';
                     channelButton.textContent = modList.mod_channels[i].channel_username;
                     channelButton.dataset.channelData = JSON.stringify(modList.mod_channels[i]);
                     modListSection.appendChild(channelButton);
@@ -169,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         moderatorSection.appendChild(emoteSetContainer);
                         
                         const backButton = document.createElement('button');
+                        backButton.className = 'glass-button'
                         backButton.textContent = '← Back to channels';
                         backButton.id = 'mod-back-button';
                         moderatorSection.appendChild(backButton);
@@ -187,9 +203,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             const modEmoteButtonName = document.createElement('h3');
                             modEmoteButtonName.textContent = channelData.emote_sets[j]['name'];
                             modEmoteSetButton.appendChild(modEmoteButtonName);
+                            modEmoteSetButton.className = 'glass-card emote-set-button'
                         
                             for(let emote of channelData.emote_sets[j]['preview_emotes']) {  
                                 const emotePreviewImg = document.createElement('img');
+                                emotePreviewImg.className = "emote-preview";
                                 emotePreviewImg.src = getEmoteImgUrl(emote.id, 2);
                                 modEmoteSetButton.appendChild(emotePreviewImg);
                             }
@@ -215,11 +233,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     profileButton.addEventListener('click', async function() {
+        // Update active nav button
+        homeButton.classList.remove('active');
+        profileButton.classList.add('active');
+        availableVotesButton.classList.remove('active');
+        voteCreationButton.classList.remove('active');
+        
         displayProfile();
     });
 
 
     homeButton.addEventListener('click', function() {
+        // Update active nav button
+        homeButton.classList.add('active');
+        profileButton.classList.remove('active');
+        availableVotesButton.classList.remove('active');
+        voteCreationButton.classList.remove('active');
+        
         // Clear any timers from voting events
         cleanupTimers();
         

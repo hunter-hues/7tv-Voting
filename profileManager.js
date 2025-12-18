@@ -1,24 +1,84 @@
 // Export the main function
 export async function displayProfile() {
-    // 1. Get content area
-    // 2. Set up HTML structure
-    // 3. Call loadModList()
-    // 4. Set up event listeners for add/remove
     const contentArea = document.querySelector('#content-area');
+    contentArea.innerHTML = '';
     
-    contentArea.innerHTML = `
-        <h2>Profile</h2>
-        
-        <h3>Manage Moderators</h3>
-        <input type="text" id="mod-username-input" placeholder="Enter Twitch username">
-        <button id="add-mod-button">Add Mod</button>
-        <div id="mod-list"></div>
-        
-        <h3>Channels You Moderate</h3>
-        <div id="mod-for-list"></div>
-        
-        <button id="logout-button">Logout</button>
-    `;
+    // Profile container
+    const profileContainer = document.createElement('div');
+    profileContainer.id = 'profile-container';
+    
+    // Profile title
+    const profileTitle = document.createElement('h2');
+    profileTitle.className = 'profile-title';
+    profileTitle.textContent = 'Profile';
+    
+    // Manage Moderators Section (Glass Card)
+    const manageModeratorsCard = document.createElement('div');
+    manageModeratorsCard.className = 'glass-card profile-section';
+    
+    const manageModeratorsTitle = document.createElement('h3');
+    manageModeratorsTitle.className = 'profile-section-title';
+    manageModeratorsTitle.textContent = 'Manage Moderators';
+    
+    const modInputSection = document.createElement('div');
+    modInputSection.className = 'profile-input-group';
+    
+    const modUsernameInput = document.createElement('input');
+    modUsernameInput.type = 'text';
+    modUsernameInput.id = 'mod-username-input';
+    modUsernameInput.className = 'form-input';
+    modUsernameInput.placeholder = 'Enter Twitch username';
+    
+    const addModButton = document.createElement('button');
+    addModButton.id = 'add-mod-button';
+    addModButton.className = 'glass-button';
+    addModButton.textContent = 'Add Mod';
+    
+    modInputSection.appendChild(modUsernameInput);
+    modInputSection.appendChild(addModButton);
+    
+    const modList = document.createElement('div');
+    modList.id = 'mod-list';
+    modList.className = 'profile-list';
+    
+    manageModeratorsCard.appendChild(manageModeratorsTitle);
+    manageModeratorsCard.appendChild(modInputSection);
+    manageModeratorsCard.appendChild(modList);
+    
+    // Channels You Moderate Section (Glass Card)
+    const modForCard = document.createElement('div');
+    modForCard.className = 'glass-card profile-section';
+    
+    const modForTitle = document.createElement('h3');
+    modForTitle.className = 'profile-section-title';
+    modForTitle.textContent = 'Channels You Moderate';
+    
+    const modForList = document.createElement('div');
+    modForList.id = 'mod-for-list';
+    modForList.className = 'profile-list';
+    
+    modForCard.appendChild(modForTitle);
+    modForCard.appendChild(modForList);
+    
+    // Logout button section
+    const logoutSection = document.createElement('div');
+    logoutSection.className = 'profile-logout-section';
+    
+    const logoutButton = document.createElement('button');
+    logoutButton.id = 'logout-button';
+    logoutButton.className = 'glass-button logout-button';
+    logoutButton.textContent = 'Logout';
+    
+    logoutSection.appendChild(logoutButton);
+    
+    // Append all sections to profile container
+    profileContainer.appendChild(profileTitle);
+    profileContainer.appendChild(manageModeratorsCard);
+    profileContainer.appendChild(modForCard);
+    profileContainer.appendChild(logoutSection);
+    
+    // Append to content area
+    contentArea.appendChild(profileContainer);
     
     await loadModList();
     await loadModForList();
@@ -66,7 +126,10 @@ async function loadModList() {
     
     // Check if there are any mods
     if (!data.moderators || data.moderators.length === 0) {
-        modListContainer.innerHTML = '<p>No moderators yet</p>';
+        const emptyMessage = document.createElement('p');
+        emptyMessage.className = 'profile-empty-message';
+        emptyMessage.textContent = 'No moderators yet';
+        modListContainer.appendChild(emptyMessage);
         return;
     }
     
@@ -74,15 +137,18 @@ async function loadModList() {
     for (const modUsername of data.moderators) {
         // Create container div for this mod
         const modDiv = document.createElement('div');
+        modDiv.className = 'profile-list-item';
         
         // Add the username text
-        const usernameText = document.createTextNode(modUsername + ' ');
-        modDiv.appendChild(usernameText);
+        const usernameSpan = document.createElement('span');
+        usernameSpan.className = 'profile-username';
+        usernameSpan.textContent = modUsername;
+        modDiv.appendChild(usernameSpan);
         
         // Create remove button
         const removeButton = document.createElement('button');
         removeButton.textContent = 'Remove';
-        removeButton.classList.add('remove-mod-btn');
+        removeButton.className = 'remove-user-button';
         removeButton.setAttribute('data-username', modUsername);
         
         // Add click listener
@@ -107,13 +173,17 @@ async function loadModForList() {
     
     // Check if authenticated and has can_create_votes_for data
     if (!data.authenticated || !data.user.can_create_votes_for || data.user.can_create_votes_for.length === 0) {
-        modForContainer.innerHTML = '<p>You are not a moderator for any channels</p>';
+        const emptyMessage = document.createElement('p');
+        emptyMessage.className = 'profile-empty-message';
+        emptyMessage.textContent = 'You are not a moderator for any channels';
+        modForContainer.appendChild(emptyMessage);
         return;
     }
     
     // Display each channel
     for (const channelUsername of data.user.can_create_votes_for) {
         const channelDiv = document.createElement('div');
+        channelDiv.className = 'profile-list-item channel-item';
         channelDiv.textContent = channelUsername;
         modForContainer.appendChild(channelDiv);
     }
