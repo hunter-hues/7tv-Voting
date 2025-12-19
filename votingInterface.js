@@ -448,6 +448,14 @@ async function createVotingInterface(event, isExpired = false) {
         const emoteUrl = getEmoteImgUrl(emote.id, '4');
         const emoteImg = document.createElement('img');
         emoteImg.src = emoteUrl;
+        
+        // Wrap image in link to 7TV emote page
+        const emoteLink = document.createElement('a');
+        emoteLink.href = `https://7tv.app/emotes/${emote.id}`;
+        emoteLink.target = '_blank';
+        emoteLink.rel = 'noopener noreferrer';
+        emoteLink.appendChild(emoteImg);
+        
         const emoteName = document.createElement('h3');
         emoteName.textContent = emote.name;
         const userVote = userVotes ? userVotes[emote.id] : null;
@@ -643,7 +651,7 @@ async function createVotingInterface(event, isExpired = false) {
         const voteEmoteDiv = document.createElement('div');
         voteEmoteDiv.className = 'vote-emote-div glass-card';
         voteEmoteDiv.appendChild(emoteName);
-        voteEmoteDiv.appendChild(emoteImg);
+        voteEmoteDiv.appendChild(emoteLink);
 
         emoteDiv.appendChild(voteEmoteDiv);
         emoteDiv.appendChild(voteButtonsDiv);

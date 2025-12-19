@@ -46,6 +46,10 @@
     box-sizing: border-box;
 }
 
+button {
+    cursor: pointer;
+}
+
 html {
     height: 100vh;
     overflow: hidden;
@@ -1277,7 +1281,7 @@ nav .nav-button-overlay:focus-visible {
 .controls-left {
     display: flex;
     gap: 0.75rem;
-    flex: 1 1 450px;
+    flex: 1 1 465px;
     min-width: 250px;
 }
 
@@ -1466,6 +1470,18 @@ nav .nav-button-overlay:focus-visible {
     gap: 0.5rem;
 }
 
+/* Link wrapper for emote images */
+.vote-emote-div a {
+    display: contents;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.vote-emote-div a:hover img {
+    transform: scale(1.05);
+    opacity: 0.9;
+}
+
 .vote-emote-div img {
     width: auto;
     max-width: min(90%, 180px);
@@ -1475,8 +1491,8 @@ nav .nav-button-overlay:focus-visible {
     display: block;
     flex-shrink: 1;
     align-self: center;
-    margin-top: auto; 
-    margin-bottom: auto; 
+    margin-top: auto;
+    margin-bottom: auto;
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 6px;
     transition: border-color 0.3s ease 0.3s, transform 0.6s ease;
