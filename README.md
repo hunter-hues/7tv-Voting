@@ -165,3 +165,5 @@ This is a learning project, but contributions are welcome! Feel free to:
 - [7TV](https://7tv.app/) - For the emote platform and API
 - [Twitch](https://www.twitch.tv/) - For the streaming platform and API
 - Built by [hunter_hues](https://github.com/hunter_hues)
+# 7tv Voting Site
+Learning the basics of web development through making a 7tv voting system, allowing streamers who utilize the 7tv extension to better know what emotes are wanted by their community and which can be removed.
