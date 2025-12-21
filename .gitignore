@@ -1,43 +1,135 @@
+# ============================================
+# Python
+# ============================================
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyc
+
+# Python egg files
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
 
 # Virtual environments
 venv/
-venv*/  # Catches venv312 or venv3.10, etc.
+venv*/
 /venv312
+env/
+ENV/
+.venv
 
-# Editor-specific files (optional but good practice)
-.vscode/
-*.code-workspace
-
-# OS-specific
-.DS_Store
-Thumbs.db
-
-# Python-specific
+# ============================================
+# Environment & Secrets
+# ============================================
 *.env
 .env
-*.log
+.env.local
+.env.*.local
 
-# Jupyter (if ever used)
-.ipynb_checkpoints/
-
-# Pytest cache
-.cache/
-.pytest_cache/
-
-# Alembic (optional - ignore if you want to keep migrations private)
-# alembic/versions/
-
+# ============================================
+# Database
+# ============================================
 # Database files (if you ever use SQLite locally)
 *.db
 *.sqlite
 *.sqlite3
 
-# Koyeb/deployment specific
-.koyeb/
-
+# ============================================
+# Testing
+# ============================================
 test_7tv.py
 test_main.py
+.pytest_cache/
+.cache/
+.coverage
+htmlcov/
+*.cover
+
+# ============================================
+# Editor & IDE
+# ============================================
+.vscode/
+*.code-workspace
+.idea/
+*.swp
+*.swo
+*~
+
+# ============================================
+# OS-specific
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================
+# Backup & Temporary Files
+# ============================================
+*.backup
+*.bak
+*.tmp
+*.temp
+*~
+.~*
+*.css.backup
+*.js.backup
+*.py.backup
+
+# ============================================
+# Media & Test Files
+# ============================================
+# Test media files (images, videos, gifs used for testing)
+*test*.gif
+*test*.webm
+*test*.mp4
+glassgiftest.gif
+liquid-glass-test.html
+
+# ============================================
+# Logs
+# ============================================
+*.log
+logs/
+*.log.*
+
+# ============================================
+# Dependencies
+# ============================================
+node_modules/
+.pnp
+.pnp.js
+
+# ============================================
+# Jupyter (if ever used)
+# ============================================
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ============================================
+# Deployment
+# ============================================
+.koyeb/
+.vercel/
+.netlify/
+
+# ============================================
+# Alembic (optional - uncomment to ignore migration versions)
+# ============================================
+# alembic/versions/
+
+# ============================================
+# Documentation (optional - uncomment if auto-generated)
+# ============================================
+CSS_CLASS_REFERENCE.md
