@@ -164,4 +164,4 @@ This is a learning project, but contributions are welcome! Feel free to:
 
 - [7TV](https://7tv.app/) - For the emote platform and API
 - [Twitch](https://www.twitch.tv/) - For the streaming platform and API
-- Built by [hunter_hues](https://github.com/hunter_hues)
+- Built by [hunter-hues](https://github.com/hunter_hues)
