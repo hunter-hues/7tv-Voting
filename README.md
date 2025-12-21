@@ -58,7 +58,7 @@ An unofficial web application that helps Twitch streamers manage their 7TV emote
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/7tv-Voting-Practice.git
+git clone https://github.com/hunter_hues/7tv-Voting-Practice.git
 cd 7tv-Voting-Practice
 ```
 
@@ -164,4 +164,4 @@ This is a learning project, but contributions are welcome! Feel free to:
 
 - [7TV](https://7tv.app/) - For the emote platform and API
 - [Twitch](https://www.twitch.tv/) - For the streaming platform and API
-- Built by [hunter_hues](https://github.com/yourusername)
+- Built by [hunter_hues](https://github.com/hunter_hues)
