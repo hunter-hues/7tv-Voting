@@ -62,7 +62,16 @@ body {
     position: relative;
     height: 100vh;
     overflow: hidden;
-    color: var(--color-text);  /* Add this line - sets default text color for all elements */
+    color: var(--color-text-light);  /* Add this line - sets default text color for all elements */
+}
+
+li {
+    line-height: 2;
+    margin-top: 30px;
+}
+
+.subpoint{
+    margin-top: 0px;
 }
 
 /* ============================================
@@ -297,6 +306,38 @@ nav .nav-button-overlay:focus-visible {
 }
 
 /* Homepage content styles */
+#homepage-container {
+    display: grid;
+    grid-template-columns: 1fr; /* Single column on mobile */
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Two columns on tablets and up - 2/3 and 1/3 split */
+@media (min-width: 768px) {
+    #homepage-container {
+        grid-template-columns: 2fr 1fr;  /* Homepage gets 2/3, sidebar gets 1/3 */
+    }
+}
+
+/* Grid utility classes for controlling card placement */
+.grid-full-width {
+    grid-column: 1 / -1;  /* Spans all columns */
+}
+
+@media (min-width: 768px) {
+    .grid-left-col {
+        grid-column: 1;  /* Takes left column (2/3 width) */
+    }
+    
+    .grid-right-col {
+        grid-column: 2;  /* Takes right column (1/3 width) */
+        align-self: start;  /* Don't stretch to match row height */
+    }
+}
+
 #app-title {
     font-size: 48px;
     font-weight: bold;
@@ -311,10 +352,33 @@ nav .nav-button-overlay:focus-visible {
     line-height: 1.5;
 }
 
+.homepage-card {
+    padding: 24px;  /* Comfortable padding for main content */
+}
+
+.homepage-card h3 {
+    margin-top: 20px;
+    margin-bottom: 12px;
+}
+
+.homepage-card li {
+    margin-bottom: 10px;  /* Spacing between list items */
+}
+
+.homepage-card li:last-child {
+    margin-bottom: 0;  /* Remove margin from last item */
+}
+
+.homepage-card .subpoint {
+    margin-bottom: 6px;  /* Less spacing for nested items */
+}
+
 #social-links {
     display: flex;
     gap: 16px;
     justify-content: center;
+    align-self: start;  /* Makes card only as tall as needed */
+    padding: 20px;  /* Internal spacing for the card */
 }
 
 .social-link {
