@@ -299,7 +299,8 @@ nav .nav-button-overlay:focus-visible {
    #content-area {
     margin: 10px;
     flex: 1;
-    overflow: hidden;
+    overflow-y: auto;  /* Allow vertical scrolling */
+    overflow-x: hidden; /* Prevent horizontal scrolling */
     display: flex;
     flex-direction: column;
     min-height: 0; /* Critical for flex children to shrink */
@@ -307,35 +308,50 @@ nav .nav-button-overlay:focus-visible {
 
 /* Homepage content styles */
 #homepage-container {
-    display: grid;
-    grid-template-columns: 1fr; /* Single column on mobile */
+    display: flex;
+    flex-direction: column;
     gap: 20px;
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
+    height: fit-content; /* Allow container to grow with content */
 }
 
-/* Two columns on tablets and up - 2/3 and 1/3 split */
+/* Two independent columns on tablets and up */
 @media (min-width: 768px) {
     #homepage-container {
-        grid-template-columns: 2fr 1fr;  /* Homepage gets 2/3, sidebar gets 1/3 */
+        flex-direction: row;
+        align-items: flex-start;  /* Prevents stretching */
+        gap: 20px;
     }
 }
 
-/* Grid utility classes for controlling card placement */
-.grid-full-width {
-    grid-column: 1 / -1;  /* Spans all columns */
+/* Column containers for independent stacking */
+.homepage-column-left {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.homepage-column-right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 @media (min-width: 768px) {
-    .grid-left-col {
-        grid-column: 1;  /* Takes left column (2/3 width) */
+    .homepage-column-left {
+        flex: 2;  /* Takes 2/3 of space */
     }
     
-    .grid-right-col {
-        grid-column: 2;  /* Takes right column (1/3 width) */
-        align-self: start;  /* Don't stretch to match row height */
+    .homepage-column-right {
+        flex: 1;  /* Takes 1/3 of space */
     }
+}
+
+/* Utility classes for full-width cards (outside columns) */
+.grid-full-width {
+    width: 100%;
 }
 
 #app-title {
@@ -347,9 +363,13 @@ nav .nav-button-overlay:focus-visible {
 
 #app-description {
     font-size: 16px;
-    color: #666;
-    margin: 0 0 32px 0;
+    margin: 0;
     line-height: 1.5;
+}
+
+/* Right column cards get padding */
+.homepage-column-right .glass-card {
+    padding: 20px;
 }
 
 .homepage-card {
@@ -373,11 +393,11 @@ nav .nav-button-overlay:focus-visible {
     margin-bottom: 6px;  /* Less spacing for nested items */
 }
 
+/* Cards in the right column don't need align-self anymore since they're in a flex column */
 #social-links {
     display: flex;
     gap: 16px;
     justify-content: center;
-    align-self: start;  /* Makes card only as tall as needed */
     padding: 20px;  /* Internal spacing for the card */
 }
 
