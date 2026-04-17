@@ -12,6 +12,12 @@ import os
 from dotenv import load_dotenv
 from starlette.middleware.sessions import SessionMiddleware
 
+load_dotenv()
+
+HTTPS_ONLY = os.getenv('HTTPS_ONLY', 'false').lower() == 'true'
+SESSION_DOMAIN = os.getenv('SESSION_DOMAIN', None)
+FRONTEND_ORIGIN = os.getenv('FRONTEND_URL', 'http://localhost:8000')
+
 # This is crucial - add JavaScript MIME type before creating the app
 mimetypes.add_type('application/javascript', '.js')
 
@@ -19,7 +25,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.7tvote.dev"],
+    allow_origins=[FRONTEND_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,14 +35,14 @@ app.include_router(users_router)
 app.include_router(emotes_router)
 app.include_router(auth_router)
 app.include_router(votes_router)
-app.include_router(mods_router) 
+app.include_router(mods_router)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv('SECRET_KEY', 'default_secret_key'),
     session_cookie="session",
-    same_site="none",
-    https_only=True,
-    domain=".7tvote.dev"
+    same_site="none" if HTTPS_ONLY else "lax",
+    https_only=HTTPS_ONLY,
+    domain=SESSION_DOMAIN
 )
 
 # Mount static files with the updated MIME types
