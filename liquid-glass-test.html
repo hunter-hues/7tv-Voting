@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liquid Glass Effect Test</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap");
+
+    /* ============================================
+       ORIGINAL LIQUID GLASS STYLES
+       ============================================ */
+
+    .liquidGlass-wrapper {
+        position: relative;
+        display: flex;
+        font-weight: 600;
+        overflow: hidden;
+        color: black;
+        cursor: pointer;
+        box-shadow: 0 6px 6px rgba(0, 0, 0, 0.2), 0 0 20px rgba(0, 0, 0, 0.1);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+        border-radius: inherit;
+        border: none;
+        background: transparent;
+        padding: 0;
+        font-family: inherit;
+        font-size: inherit;
+        text-align: inherit;
+        outline: none;
+    }
+
+    .liquidGlass-wrapper:focus-visible {
+        outline: 2px solid rgba(255, 255, 255, 0.8);
+        outline-offset: 2px;
+    }
+
+    .liquidGlass-effect {
+        position: absolute;
+        z-index: 0;
+        inset: 0;
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        filter: url(#glass-distortion);
+        overflow: hidden;
+        isolation: isolate;
+        border-radius: inherit;
+    }
+
+    .liquidGlass-tint {
+        z-index: 1;
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: inherit;
+    }
+
+    .liquidGlass-shine {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        overflow: hidden;
+        box-shadow: inset 2px 2px 1px 0 rgba(255, 255, 255, 0.5),
+                    inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5);
+        border-radius: inherit;
+    }
+
+    .liquidGlass-text {
+        z-index: 3;
+        font-size: 2rem;
+        color: black;
+    }
+
+    /* Original button styling */
+    .original-glass-button {
+        padding: 1.5rem 2.5rem;
+        border-radius: 3rem;
+        border: none;
+        background: transparent;
+    }
+
+    .original-glass-button,
+    .original-glass-button > div {
+        border-radius: 3rem;
+    }
+
+    .original-glass-button:hover {
+        padding: 1.8rem 2.8rem;
+    }
+
+    .original-glass-button:hover > div {
+        border-radius: 4rem;
+    }
+
+    /* ============================================
+       NEW CRYSTAL GLASS STYLES
+       ============================================ */
+
+    .crystal-glass-button {
+        position: relative;
+        cursor: pointer;
+        outline: none;
+        width: 350px;
+        height: 180px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.2) 0%,
+            rgba(255, 255, 255, 0.08) 50%,
+            rgba(255, 255, 255, 0.03) 100%
+        );
+        backdrop-filter: url(#glass);
+        transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .crystal-glass-button span {
+        font-family: "Orbitron", sans-serif;
+        color: white;
+        font-size: 2.5rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .crystal-glass-button:hover {
+        transform: scale(1.05);
+    }
+
+    /* Small nav-style button for testing */
+    .crystal-glass-button-small {
+        position: relative;
+        cursor: pointer;
+        outline: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.2) 0%,
+            rgba(255, 255, 255, 0.08) 50%,
+            rgba(255, 255, 255, 0.03) 100%
+        );
+        backdrop-filter: url(#glass);
+        -webkit-backdrop-filter: url(#glass);
+        transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .crystal-glass-button-small span {
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        letter-spacing: 0.05em;
+    }
+
+    .crystal-glass-button-small:hover {
+        transform: scale(1.05);
+    }
+
+    /* Long nav-style button for testing (matches nav width) */
+    .crystal-glass-button-long {
+        position: relative;
+        cursor: pointer;
+        outline: none;
+        width: 940px;
+        height: 50px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.2) 0%,
+            rgba(255, 255, 255, 0.08) 50%,
+            rgba(255, 255, 255, 0.03) 100%
+        );
+        /* Test: Try CSS blur instead of SVG filter */
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Alternative: Long button with SVG filter (commented out for testing) */
+    .crystal-glass-button-long-svg {
+        position: relative;
+        cursor: pointer;
+        outline: none;
+        width: 940px;
+        height: 50px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.2) 0%,
+            rgba(255, 255, 255, 0.08) 50%,
+            rgba(255, 255, 255, 0.03) 100%
+        );
+        backdrop-filter: url(#glass-long);
+        -webkit-backdrop-filter: url(#glass-long);
+        transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .crystal-glass-button-long span {
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        letter-spacing: 0.05em;
+    }
+
+    .crystal-glass-button-long:hover,
+    .crystal-glass-button-long-svg:hover {
+        transform: scale(1.05);
+    }
+    
+    .crystal-glass-button-long-svg span {
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        letter-spacing: 0.05em;
+    }
+
+    /* ============================================
+       TEST PAGE STYLES
+       ============================================ */
+
+    body {
+        padding: 0;
+        margin: 0;
+        min-height: 150vh;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 300;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    .background-video {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -2;
+        pointer-events: none;
+    }
+
+    .background-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(360deg, rgba(61, 87, 87, 1) 0%, rgba(61, 87, 87, 1) 62%, rgba(67, 108, 94, 1) 82%, rgba(92, 156, 138, 1) 94%, rgba(91, 179, 175, 1) 97%, rgba(93, 205, 207, 1) 100%);
+        z-index: -1;
+        pointer-events: none;
+        mix-blend-mode: multiply;
+    }
+
+    .test-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 60px;
+        padding: 80px 40px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .button-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .button-label {
+        color: white;
+        font-size: 1.2rem;
+        font-weight: 600;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    h1 {
+        color: white;
+        text-align: center;
+        margin-bottom: 40px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <!-- Original SVG Filter -->
+  <svg style="display: none">
+    <defs>
+      <filter
+        id="glass-distortion"
+        x="0%"
+        y="0%"
+        width="100%"
+        height="100%"
+        filterUnits="objectBoundingBox"
+      >
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.01 0.01"
+          numOctaves="1"
+          seed="100032515"
+          result="turbulence"
+        />
+        <feComponentTransfer in="turbulence" result="mapped">
+          <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+          <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+          <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+        <feSpecularLighting
+          in="softMap"
+          surfaceScale="5"
+          specularConstant="1"
+          specularExponent="100"
+          lighting-color="white"
+          result="specLight"
+        >
+          <fePointLight x="-200" y="-200" z="300" />
+        </feSpecularLighting>
+        <feComposite
+          in="specLight"
+          operator="arithmetic"
+          k1="0"
+          k2="1"
+          k3="1"
+          k4="0"
+          result="litImage"
+        />
+        <feDisplacementMap
+          in="SourceGraphic"
+          in2="softMap"
+          scale="150"
+          xChannelSelector="R"
+          yChannelSelector="G"
+        />
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- New Crystal Glass SVG Filter -->
+  <svg style="position: absolute; width: 0; height: 0">
+    <filter
+      id="glass"
+      x="-50%"
+      y="-50%"
+      width="200%"
+      height="200%"
+      primitiveUnits="objectBoundingBox"
+    >
+      <feImage
+        x="-50%"
+        y="-50%"
+        width="200%"
+        height="200%"
+        result="map"
+      />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.02" result="blur" />
+      <feDisplacementMap
+        id="disp"
+        in="blur"
+        in2="map"
+        scale="0.8"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      ></feDisplacementMap>
+    </filter>
+    <!-- Filter for long/wide elements - try tiling the displacement map -->
+    <filter
+      id="glass-long"
+      x="0%"
+      y="0%"
+      width="100%"
+      height="100%"
+      primitiveUnits="objectBoundingBox"
+    >
+      <feImage
+        x="0%"
+        y="0%"
+        width="100%"
+        height="100%"
+        preserveAspectRatio="none"
+        result="map"
+      />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.02" result="blur" />
+      <feDisplacementMap
+        id="disp-long"
+        in="blur"
+        in2="map"
+        scale="0.8"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      ></feDisplacementMap>
+    </filter>
+  </svg>
+
+  <!-- Background Video -->
+  <video class="background-video" autoplay muted loop playsinline>
+    <source src="a7a4300630ed2733eca4a8bb584c3086a66063d78e2f829faf465d96ff388a93.webm" type="video/webm">
+  </video>
+
+  <!-- Gradient Overlay -->
+  <div class="background-overlay"></div>
+
+  <div class="test-container">
+    <h1>Glass Effect Comparison</h1>
+
+    <!-- Original Liquid Glass Button -->
+    <div class="button-group">
+      <div class="button-label">Original Liquid Glass</div>
+      <button class="liquidGlass-wrapper original-glass-button" type="button">
+        <div class="liquidGlass-effect"></div>
+        <div class="liquidGlass-tint"></div>
+        <div class="liquidGlass-shine"></div>
+        <div class="liquidGlass-text">Click Me</div>
+      </button>
+    </div>
+
+    <!-- New Crystal Glass Button -->
+    <div class="button-group">
+      <div class="button-label">Crystal Glass</div>
+      <button class="crystal-glass-button">
+        <span>CRYSTAL</span>
+      </button>
+    </div>
+
+    <!-- Small Nav-Style Button (matches main project) -->
+    <div class="button-group">
+      <div class="button-label">Small Nav-Style Button</div>
+      <button class="crystal-glass-button-small">
+        <span>7TVote</span>
+      </button>
+    </div>
+
+    <!-- Long Nav-Style Button with CSS Blur (test) -->
+    <div class="button-group">
+      <div class="button-label">Long Button - CSS Blur Test (940px wide)</div>
+      <button class="crystal-glass-button-long">
+        <span>Long Navigation Bar Test (Blur)</span>
+      </button>
+    </div>
+
+    <!-- Long Nav-Style Button with SVG Filter (for comparison) -->
+    <div class="button-group">
+      <div class="button-label">Long Button - SVG Filter (940px wide)</div>
+      <button class="crystal-glass-button-long-svg">
+        <span>Long Navigation Bar Test (SVG)</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Load the displacement map image for crystal glass filters
+    const feImages = document.querySelectorAll("feImage");
+    if (feImages.length > 0) {
+      fetch("https://essykings.github.io/JavaScript/map.png")
+        .then((response) => {
+          return response.blob();
+        })
+        .then((blob) => {
+          const objURL = URL.createObjectURL(blob);
+          // Set href for all feImage elements (both filters)
+          feImages.forEach(feImage => {
+            feImage.setAttribute("href", objURL);
+          });
+        })
+        .catch((error) => {
+          console.warn("Could not load displacement map image:", error);
+        });
+    }
+
+    // Add click handlers
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+      button.addEventListener('click', function() {
+        console.log('Glass button clicked!', this.className);
+      });
+    });
+  </script>
+</body>
+</html>
