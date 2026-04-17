@@ -29,6 +29,7 @@ oauth.register(
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = "HS256"
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:8000')
 
 @router.get('/auth/login')
 async def login(request: Request):
@@ -190,7 +191,7 @@ async def callback(request: Request, db: AsyncSession = Depends(get_database)):
                 else:
                     await db.refresh(new_user)  # Refresh to get the auto-generated ID
                     request.session["user_id"] = new_user.id
-                return RedirectResponse(url="/", status_code=302)
+                return RedirectResponse(url=f"{FRONTEND_URL}/", status_code=302)
 
 @router.get('/auth/me')
 async def get_current_user(request: Request, db: AsyncSession = Depends(get_database)):
@@ -229,4 +230,4 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_data
 @router.get('/auth/logout')
 async def logout(request: Request):
     request.session.clear()
-    return RedirectResponse(url="/", status_code=302)
+    return RedirectResponse(url=f"{FRONTEND_URL}/", status_code=302)
