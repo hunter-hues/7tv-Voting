@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners
     loginButton.addEventListener('click', async function() {
-        window.location.href = '/auth/login'
+        window.location.href = `${API_BASE}/auth/login`
     });
 
     availableVotesButton.addEventListener('click', async function() {
