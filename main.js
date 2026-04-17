@@ -1,4 +1,5 @@
 import { getUser, getEmoteSets, getEmoteImgUrl } from "./api.js";
+import { API_BASE } from './config.js';
 import { displayEmoteSets } from "./emotedisplay.js";
 import { displayVoteCreation } from "./displayVoteCreation.js";
 import { displayVotingEvents, cleanupTimers } from "./votingInterface.js";
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         voteCreationButton.classList.remove('active');
         
         try {
-            const response = await fetch('/votes/voting-events');
+            const response = await fetch(`${API_BASE}/votes/voting-events`);
             const data = await response.json();
             
             if (data.success) {
@@ -147,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let modList = [];
             try {
-                const modResponse = await fetch('/emotes/mod-list', {credentials: 'include'})
+                const modResponse = await fetch(`${API_BASE}/emotes/mod-list`, {credentials: 'include'})
                 modList = await modResponse.json();
             } catch (error) {
                 console.error('Error:', error);

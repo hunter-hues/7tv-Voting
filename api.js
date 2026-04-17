@@ -1,8 +1,10 @@
 console.log("api.js loaded successfully");
 
+import { API_BASE } from './config.js';
+
 export async function getUser(username) {
     try {
-        const response = await fetch(`/users/${username}`);
+        const response = await fetch(`${API_BASE}/users/${username}`);
         if(!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -16,7 +18,7 @@ export async function getUser(username) {
 
 export async function getEmoteSets(sevenTV_id) {  
     try {
-        const emoteSetsData = await fetch(`/emotes/emote_sets/${sevenTV_id}`);  
+        const emoteSetsData = await fetch(`${API_BASE}/emotes/emote_sets/${sevenTV_id}`);  
         if (!emoteSetsData.ok) {
             throw new Error(`HTTP error! status: ${emoteSetsData.status}`);
         }
@@ -30,7 +32,7 @@ export async function getEmoteSets(sevenTV_id) {
 
 export async function getEmotesFromSet(emoteSetId) {
     try {
-        const emoteSetData = await fetch(`/emotes/set/${emoteSetId}/emotes`);
+        const emoteSetData = await fetch(`${API_BASE}/emotes/set/${emoteSetId}/emotes`);
         if (!emoteSetData.ok) {
             throw new Error(`HTTP error! status: ${emoteSetData.status}`);
         }
@@ -48,7 +50,7 @@ export function getEmoteImgUrl(id, size) {
 
 export async function createNeutralVote(votingEventId, emoteId) {
     try {
-        const checkResponse = await fetch(`/votes/check?voting_event_id=${votingEventId}&emote_id=${emoteId}`);
+        const checkResponse = await fetch(`${API_BASE}/votes/check?voting_event_id=${votingEventId}&emote_id=${emoteId}`);
         const checkResult = await checkResponse.json();
         
         if (checkResult.vote_exists) {
@@ -56,7 +58,7 @@ export async function createNeutralVote(votingEventId, emoteId) {
             return; 
         }
         
-        const response = await fetch('/votes/submit', {
+        const response = await fetch(`${API_BASE}/votes/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -89,7 +91,7 @@ export async function createNeutralVotesInBackground(votingEventId, emotes, user
     // OPTIMIZATION: Batch create all votes in a single API call
     try {
         const batchStartTime = performance.now();
-        const response = await fetch('/votes/submit-batch', {
+        const response = await fetch(`${API_BASE}/votes/submit-batch`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -135,7 +137,7 @@ export async function createNeutralVotesInBackground(votingEventId, emotes, user
 
 export async function getVoteCounts(eventId) {
     try {
-        const response = await fetch(`/votes/${eventId}/counts`);
+        const response = await fetch(`${API_BASE}/votes/${eventId}/counts`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }

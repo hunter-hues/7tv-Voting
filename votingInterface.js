@@ -1,4 +1,5 @@
 import { getEmotesFromSet, getEmoteImgUrl, createNeutralVote, createNeutralVotesInBackground, getVoteCounts } from "./api.js";
+import { API_BASE } from './config.js';
 import { getCachedUser } from './userCache.js';
 const contentArea = document.querySelector('#content-area');
 
@@ -498,7 +499,7 @@ async function createVotingInterface(event, isExpired = false) {
 
         // Vote button event listeners
         keepButton.addEventListener('click', async function () {
-            const response = await fetch('/votes/submit', {
+            const response = await fetch(`${API_BASE}/votes/submit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -545,7 +546,7 @@ async function createVotingInterface(event, isExpired = false) {
         });
 
         removeButton.addEventListener('click', async function () {
-            const response = await fetch('/votes/submit', {
+            const response = await fetch(`${API_BASE}/votes/submit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -594,7 +595,7 @@ async function createVotingInterface(event, isExpired = false) {
         });
 
         neutralButton.addEventListener('click', async function () {
-            const response = await fetch('/votes/submit', {
+            const response = await fetch(`${API_BASE}/votes/submit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1199,7 +1200,7 @@ async function openEditPopup(event) {
         console.log('URL:', `/votes/update/${event.id}`);
         
         try {
-            const response = await fetch(`/votes/update/${event.id}`, {
+            const response = await fetch(`${API_BASE}/votes/update/${event.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData)
@@ -1232,7 +1233,7 @@ async function openEditPopup(event) {
         }
         
         try {
-            const response = await fetch(`/votes/update/${event.id}`, {
+            const response = await fetch(`${API_BASE}/votes/update/${event.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ end_now: true })
@@ -1591,7 +1592,7 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
                 creatorRadios.forEach(radio => radio.disabled = true);
                 try {
                     const fetchStartTime = performance.now();
-                    const response = await fetch('/user/following', { credentials: 'include' });
+                    const response = await fetch(`${API_BASE}/user/following`, { credentials: 'include' });
                     const data = await response.json();
                     followedChannels = new Set(data.channel_ids || []);
                     followedChannelsCacheTimestamp = now;
@@ -1893,7 +1894,7 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
 
 export async function displayVotingEventById(eventId) {
     try {
-        const response = await fetch(`/votes/${eventId}`);
+        const response = await fetch(`${API_BASE}/votes/${eventId}`);
         const data = await response.json();
         
         if (data.success) {

@@ -1,4 +1,5 @@
 import { displayVotingEventById } from "./votingInterface.js";
+import { API_BASE } from './config.js';
 
 export function displayVoteCreation(selectedEmoteSet, username) {
     let activeTimeTab = 'duration';
@@ -286,7 +287,7 @@ export function displayVoteCreation(selectedEmoteSet, username) {
 
         if(!submitButton.disabled) {
             try {
-                const response = await fetch('/votes/create', {
+                const response = await fetch(`${API_BASE}/votes/create`, {
                     method: 'POST',  // We're creating/sending data
                     headers: { 'Content-Type': 'application/json' },  // Tell server it's JSON
                     body: JSON.stringify(formData)  // Convert object to JSON string

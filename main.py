@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from api.users import router as users_router
 from api.emotes import router as emotes_router
 from api.auth import router as auth_router
@@ -15,6 +16,15 @@ from starlette.middleware.sessions import SessionMiddleware
 mimetypes.add_type('application/javascript', '.js')
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://www.7tvote.com"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(users_router)
 app.include_router(emotes_router)
 app.include_router(auth_router)

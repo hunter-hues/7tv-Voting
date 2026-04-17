@@ -1,6 +1,8 @@
 // OPTIMIZATION: Cache user data to avoid redundant API calls
 // Cache user data in memory for the session
 
+import { API_BASE } from './config.js';
+
 let cachedUserData = null;
 let cacheTimestamp = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -17,7 +19,7 @@ export async function getCachedUser() {
     // Fetch fresh data
     console.log('[USER CACHE] Fetching fresh user data');
     try {
-        const response = await fetch('/auth/me', { credentials: 'include' });
+        const response = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
         const data = await response.json();
         
         cachedUserData = data;
