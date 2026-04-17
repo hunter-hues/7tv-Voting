@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>7TV Emote Sets</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link href="https://fonts.googleapis.com/css2?family=Anta&family=Rubik+Doodle+Shadow&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Background Video -->
+  <video class="background-video" autoplay muted loop playsinline>
+    <source src="a7a4300630ed2733eca4a8bb584c3086a66063d78e2f829faf465d96ff388a93.webm" type="video/webm">
+  </video>
+
+  <!-- Gradient Overlay -->
+  <div class="background-overlay"></div>
+
+  <!-- Dashboard - always present -->
+  <div id="dashboard">
+    <nav class="glass-nav">
+      <button id="home-btn" class="nav-button-overlay">
+        <span>7TVote</span>
+      </button>
+      <div class="nav-center">
+        <button id="available-votes-btn" class="nav-button-overlay">
+          <span>Events</span>
+        </button>
+        <button id="create-vote-btn" class="nav-button-overlay">
+          <span>Create</span>
+        </button>
+      </div>
+      <button id="profile-btn" class="nav-button-overlay">
+        <span>Profile</span>
+      </button>
+    </nav>
+    <div id="content-area">
+      <!-- Homepage content - visible to everyone -->
+      <div id="homepage-container">
+        <!-- Left Column (2/3 width) - Add more cards here and they'll stack -->
+        <div class="homepage-column-left">
+          <div class="glass-card homepage-card">
+            <h3>Possible upcoming features:</h3>
+            <ul id="upcoming">
+              <li>Emote Useage Statistics: provides data on how often emotes are used in your chat, allowing for more common sense removal</li>
+              <li>Viewer Emote Suggestions: allows viewers to place emotes in a queue, removing the need to post links in chat or dm mods <ul>
+                <li class="subpoint">Possible Twitch integration for channel point redeems</li>
+              </ul></li>
+              <li>In Chat Voting Events: chatbot that goes one by one through emotes within a set, letting chat type keywords to vote on each emote<ul>
+                <li class="subpoint">Could have a channel point redeem that creates an in chat vote for an emote (vote to kick but for emotes)</li>
+              </ul></li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- Right Column (1/3 width) - Add more cards here and they'll stack -->
+        <div class="homepage-column-right">
+          <div class="glass-card">
+            <p id="app-description">An unofficial 7TV utility made by hunter_hues, easily find emotes to remove when space is tight</p>
+          </div>
+          <div id="social-links" class="glass-card">
+            <a href="https://x.com/h__hues" class="social-link" target="_blank">Twitter</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login popup overlay - just the login button -->
+  <div id="login-overlay" class="hidden">
+    <div id="login-backdrop"></div>
+    <div id="login-popup" class="glass-card">
+      <label for="login-with-twitch-btn">Sign in with Twitch</label>
+      <button id="login-with-twitch-btn" class="glass-button">
+        <span>Login</span>
+      </button>
+    </div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

@@ -1,5 +1,142 @@
+<<<<<<< HEAD
 venv/
 .env
 venv312/
 __pycache__/
-alembic/
+=======
+# ============================================
+# Python
+# ============================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+
+# Python egg files
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
+
+# Virtual environments
+venv/
+venv*/
+/venv312
+env/
+ENV/
+.venv
+
+# ============================================
+# Environment & Secrets
+# ============================================
+*.env
+.env
+.env.local
+.env.*.local
+
+# ============================================
+# Database
+# ============================================
+# Database files (if you ever use SQLite locally)
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# Testing
+# ============================================
+test_7tv.py
+test_main.py
+.pytest_cache/
+.cache/
+.coverage
+htmlcov/
+*.cover
+
+# ============================================
+# Editor & IDE
+# ============================================
+.vscode/
+*.code-workspace
+.idea/
+*.swp
+*.swo
+*~
+
+# ============================================
+# OS-specific
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================
+# Backup & Temporary Files
+# ============================================
+*.backup
+*.bak
+*.tmp
+*.temp
+*~
+.~*
+*.css.backup
+*.js.backup
+*.py.backup
+
+# ============================================
+# Media & Test Files
+# ============================================
+# Test media files (images, videos, gifs used for testing)
+*test*.gif
+*test*.webm
+*test*.mp4
+glassgiftest.gif
+liquid-glass-test.html
+
+# ============================================
+# Logs
+# ============================================
+*.log
+logs/
+*.log.*
+
+# ============================================
+# Dependencies
+# ============================================
+node_modules/
+.pnp
+.pnp.js
+
+# ============================================
+# Jupyter (if ever used)
+# ============================================
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ============================================
+# Deployment
+# ============================================
+.koyeb/
+.vercel/
+.netlify/
+
+# ============================================
+# Alembic (optional - uncomment to ignore migration versions)
+# ============================================
+# alembic/versions/
+
+# ============================================
+# Documentation (optional - uncomment if auto-generated)
+# ============================================
+CSS_CLASS_REFERENCE.md
+>>>>>>> 8974bcff7dce3259181a27b8cf46df3d7f43d383

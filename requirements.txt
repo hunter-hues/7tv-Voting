@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+httpx
+sqlalchemy
+alembic
+asyncpg
+python-dotenv
+authlib
+python-jose[cryptography]
+psycopg2-binary
+itsdangerous
