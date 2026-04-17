@@ -502,6 +502,7 @@ async function createVotingInterface(event, isExpired = false) {
             const response = await fetch(`${API_BASE}/votes/submit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     voting_event_id: event.id,  
                     emote_id: emote.id,
@@ -549,6 +550,7 @@ async function createVotingInterface(event, isExpired = false) {
             const response = await fetch(`${API_BASE}/votes/submit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     voting_event_id: event.id,  
                     emote_id: emote.id,
@@ -598,6 +600,7 @@ async function createVotingInterface(event, isExpired = false) {
             const response = await fetch(`${API_BASE}/votes/submit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     voting_event_id: event.id,  
                     emote_id: emote.id,
@@ -1203,6 +1206,7 @@ async function openEditPopup(event) {
             const response = await fetch(`${API_BASE}/votes/update/${event.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(updateData)
             });
             
@@ -1236,6 +1240,7 @@ async function openEditPopup(event) {
             const response = await fetch(`${API_BASE}/votes/update/${event.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ end_now: true })
             });
             
@@ -1894,7 +1899,7 @@ export function displayVotingEvents(activeEvents, expiredEvents) {
 
 export async function displayVotingEventById(eventId) {
     try {
-        const response = await fetch(`${API_BASE}/votes/${eventId}`);
+        const response = await fetch(`${API_BASE}/votes/${eventId}`, { credentials: 'include' });
         const data = await response.json();
         
         if (data.success) {

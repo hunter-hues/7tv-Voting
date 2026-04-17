@@ -89,7 +89,7 @@ export async function displayProfile() {
 document.addEventListener('click', async function(event) {
     if (event.target.id === 'logout-button') {
         try {
-            const response = await fetch(`${API_BASE}/auth/logout`);
+            const response = await fetch(`${API_BASE}/auth/logout`, { credentials: 'include' });
             if (response.ok) {
                 // Reload the page to reset everything
                 window.location.reload();
@@ -197,8 +197,8 @@ async function addMod(username) {
         const response = await fetch(`${API_BASE}/mods/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ username: username }),
-            credentials: 'include'  // ← Add this
         });
         
         const data = await response.json();
@@ -226,8 +226,8 @@ async function removeMod(username) {
         const response = await fetch(`${API_BASE}/mods/remove`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ username: username }),
-            credentials: 'include'  // ← Add this
         });
         
         const data = await response.json();

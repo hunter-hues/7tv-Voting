@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         voteCreationButton.classList.remove('active');
         
         try {
-            const response = await fetch(`${API_BASE}/votes/voting-events`);
+            const response = await fetch(`${API_BASE}/votes/voting-events`, { credentials: 'include' });
             const data = await response.json();
             
             if (data.success) {

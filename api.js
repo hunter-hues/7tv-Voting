@@ -4,7 +4,7 @@ import { API_BASE } from './config.js';
 
 export async function getUser(username) {
     try {
-        const response = await fetch(`${API_BASE}/users/${username}`);
+        const response = await fetch(`${API_BASE}/users/${username}`, { credentials: 'include' });
         if(!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -18,7 +18,7 @@ export async function getUser(username) {
 
 export async function getEmoteSets(sevenTV_id) {  
     try {
-        const emoteSetsData = await fetch(`${API_BASE}/emotes/emote_sets/${sevenTV_id}`);  
+        const emoteSetsData = await fetch(`${API_BASE}/emotes/emote_sets/${sevenTV_id}`, { credentials: 'include' });  
         if (!emoteSetsData.ok) {
             throw new Error(`HTTP error! status: ${emoteSetsData.status}`);
         }
@@ -32,7 +32,7 @@ export async function getEmoteSets(sevenTV_id) {
 
 export async function getEmotesFromSet(emoteSetId) {
     try {
-        const emoteSetData = await fetch(`${API_BASE}/emotes/set/${emoteSetId}/emotes`);
+        const emoteSetData = await fetch(`${API_BASE}/emotes/set/${emoteSetId}/emotes`, { credentials: 'include' });
         if (!emoteSetData.ok) {
             throw new Error(`HTTP error! status: ${emoteSetData.status}`);
         }
@@ -50,7 +50,7 @@ export function getEmoteImgUrl(id, size) {
 
 export async function createNeutralVote(votingEventId, emoteId) {
     try {
-        const checkResponse = await fetch(`${API_BASE}/votes/check?voting_event_id=${votingEventId}&emote_id=${emoteId}`);
+        const checkResponse = await fetch(`${API_BASE}/votes/check?voting_event_id=${votingEventId}&emote_id=${emoteId}`, { credentials: 'include' });
         const checkResult = await checkResponse.json();
         
         if (checkResult.vote_exists) {
@@ -61,6 +61,7 @@ export async function createNeutralVote(votingEventId, emoteId) {
         const response = await fetch(`${API_BASE}/votes/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
                 voting_event_id: votingEventId,
                 emote_id: emoteId,
@@ -94,6 +95,7 @@ export async function createNeutralVotesInBackground(votingEventId, emotes, user
         const response = await fetch(`${API_BASE}/votes/submit-batch`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
                 voting_event_id: votingEventId,
                 votes: emotesNeedingVotes.map(emote => ({
@@ -137,7 +139,7 @@ export async function createNeutralVotesInBackground(votingEventId, emotes, user
 
 export async function getVoteCounts(eventId) {
     try {
-        const response = await fetch(`${API_BASE}/votes/${eventId}/counts`);
+        const response = await fetch(`${API_BASE}/votes/${eventId}/counts`, { credentials: 'include' });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }

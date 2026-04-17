@@ -288,8 +288,9 @@ export function displayVoteCreation(selectedEmoteSet, username) {
         if(!submitButton.disabled) {
             try {
                 const response = await fetch(`${API_BASE}/votes/create`, {
-                    method: 'POST',  // We're creating/sending data
-                    headers: { 'Content-Type': 'application/json' },  // Tell server it's JSON
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify(formData)  // Convert object to JSON string
                 });
 
