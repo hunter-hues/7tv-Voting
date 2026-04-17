@@ -30,7 +30,14 @@ app.include_router(emotes_router)
 app.include_router(auth_router)
 app.include_router(votes_router)
 app.include_router(mods_router) 
-app.add_middleware(SessionMiddleware, secret_key=os.getenv('SECRET_KEY', 'default_secret_key'))
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv('SECRET_KEY', 'default_secret_key'),
+    session_cookie="session",
+    same_site="none",
+    https_only=True,
+    domain=".7tvote.dev"
+)
 
 # Mount static files with the updated MIME types
 app.mount("/static", StaticFiles(directory=".", html=True), name="static")
