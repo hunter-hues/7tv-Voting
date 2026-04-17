@@ -1,3 +1,5 @@
+import { API_BASE } from './config.js';
+
 // Export the main function
 export async function displayProfile() {
     const contentArea = document.querySelector('#content-area');
@@ -87,7 +89,7 @@ export async function displayProfile() {
 document.addEventListener('click', async function(event) {
     if (event.target.id === 'logout-button') {
         try {
-            const response = await fetch('/auth/logout');
+            const response = await fetch(`${API_BASE}/auth/logout`);
             if (response.ok) {
                 // Reload the page to reset everything
                 window.location.reload();
@@ -116,7 +118,7 @@ document.addEventListener('click', async function(event) {
 
 // Helper function to load/refresh the mod list
 async function loadModList() {
-    const response = await fetch('/mods/list', {
+    const response = await fetch(`${API_BASE}/mods/list`, {
         credentials: 'include'
     });
     const data = await response.json();
@@ -163,7 +165,7 @@ async function loadModList() {
 }
 
 async function loadModForList() {
-    const response = await fetch('/auth/me', {
+    const response = await fetch(`${API_BASE}/auth/me`, {
         credentials: 'include' 
     });
     const data = await response.json();
@@ -192,7 +194,7 @@ async function loadModForList() {
 // Helper function to add a mod
 async function addMod(username) {
     try {
-        const response = await fetch('/mods/add', {
+        const response = await fetch(`${API_BASE}/mods/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: username }),
@@ -221,7 +223,7 @@ async function addMod(username) {
 // Helper function to remove a mod
 async function removeMod(username) {
     try {
-        const response = await fetch('/mods/remove', {
+        const response = await fetch(`${API_BASE}/mods/remove`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: username }),
